@@ -15,11 +15,9 @@ local world = require(ReplicatedStorage.Code.Shared.World)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 local EventTypes = require(ReplicatedStorage.Code.Shared.EventTypes)
 
-local MIN_KICK_SPEED = 40      -- studs/s at zero charge (~8 stud range)
-local MAX_KICK_SPEED = 130     -- studs/s at full charge (~86 stud range)
-local LAUNCH_ANGLE = math.rad(45)
-local COS_ANGLE = math.cos(LAUNCH_ANGLE)
-local SIN_ANGLE = math.sin(LAUNCH_ANGLE)
+local MIN_KICK_SPEED = 40         -- studs/s at zero charge (~8 stud range)
+local MAX_KICK_SPEED = 130        -- studs/s at full charge (~86 stud range)
+local DEFAULT_LAUNCH_ANGLE = 45   -- degrees, if the Kick def has no LAUNCH_ANGLE
 
 local function kickImpulseSystem()
 	for _, event in EventTypes.Kick:drain() do
@@ -34,9 +32,15 @@ local function kickImpulseSystem()
 		local charge = math.clamp(event.charge or 0, 0, 1)
 		local speed = MIN_KICK_SPEED + (MAX_KICK_SPEED - MIN_KICK_SPEED) * charge
 
-		-- Flat forward from yaw (matches camera LookVector projected onto XZ).
+		-- Launch elevation is data-driven (LAUNCH_ANGLE on the Kick def), read live so
+		-- it can be retuned at runtime. Degrees in the component, radians for the math.
+		local angleDeg = world:get(components.Kick, components.LAUNCH_ANGLE) or DEFAULT_LAUNCH_ANGLE
+		local angle = math.rad(angleDeg)
+
+		-- Flat forward from yaw (matches camera LookVector projected onto XZ), tilted
+		-- up by `angle`. Both basis vectors are unit + orthogonal, so |launchVel| = speed.
 		local flatForward = Vector3.new(-math.sin(yaw), 0, -math.cos(yaw))
-		local launchVel = (flatForward * COS_ANGLE + Vector3.new(0, 1, 0) * SIN_ANGLE) * speed
+		local launchVel = (flatForward * math.cos(angle) + Vector3.new(0, 1, 0) * math.sin(angle)) * speed
 
 		world:set(ballEntity, components.VELOCITY, launchVel)
 	end

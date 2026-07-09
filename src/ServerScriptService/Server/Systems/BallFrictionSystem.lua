@@ -3,10 +3,16 @@
 -- a full stop below REST_EPSILON. Queries BALL_GROUNDED (published by BallGroundSystem)
 -- so it never touches airborne balls — their arc stays untouched.
 --
--- Mirrors CharGroundVelocitySystem: a velocity operation in the Movement phase that
--- reads the grounded tag the Collision-phase system produced (one frame stale, same as
--- characters). Only touches X/Z; Y is owned by Gravity + BallGroundSystem.
--- Server-only.
+-- Runs in PostGravity — deliberately AFTER WindSystem (Gravity phase), not Movement.
+-- Wind is a per-tick acceleration on VELOCITY; if friction ran before wind (like
+-- CharGroundVelocitySystem does for characters, who have no wind), it would always be
+-- decelerating LAST tick's push, never this tick's — so Integration would always move
+-- the ball by one tick's unopposed wind before friction ever got a chance to react,
+-- producing a constant, magnitude-independent creep no amount of friction could cancel.
+-- Running after Gravity fixes that: friction sees this tick's wind before Integration
+-- reads velocity. It still runs BEFORE Impulse, so a kick's launch velocity (set that
+-- same tick, while BALL_GROUNDED is still stale from last tick) is never dampened.
+-- Only touches X/Z; Y is owned by Gravity + BallGroundSystem. Server-only.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local components = require(ReplicatedStorage.Code.Shared.Components)
@@ -15,7 +21,7 @@ local world = require(ReplicatedStorage.Code.Shared.World)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 
 local FIXED_DT = 1 / 60
-local GROUND_FRICTION = 40     -- studs/s^2 horizontal decel while rolling
+local GROUND_FRICTION = 90     -- studs/s^2 horizontal decel while rolling
 local REST_EPSILON = 0.05      -- below this horizontal speed, stop dead
 
 local frictionQuery = world:query(
@@ -42,6 +48,6 @@ end
 
 return {
 	name = "BallFrictionSystem",
-	phase = pipelines.Phases.Movement,
+	phase = pipelines.Phases.PostGravity,
 	system = ballFrictionSystem,
 }

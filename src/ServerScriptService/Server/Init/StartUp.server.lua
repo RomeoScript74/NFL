@@ -15,6 +15,9 @@ local _playerAdded = require(ServerScriptService.Server.Init.PlayerAdded)()
 -- Spawn the game ball (server-authoritative, replicated to all clients).
 local _ball = require(ServerScriptService.Server.Init.BallSetup).spawn()
 
+-- Initialize global wind singleton.
+local _wind = require(ServerScriptService.Server.Init.WindInit).init()
+
 local startUp = require(ReplicatedStorage.Code.Shared.Init.StartUp)
 
 local systems = {}

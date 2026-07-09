@@ -15,6 +15,7 @@ local Combat            = phase.new("Combat")
 local PostCombat        = phase.new("PostCombat")
 local Movement          = phase.new("Movement")
 local Gravity           = phase.new("Gravity")
+local PostGravity       = phase.new("PostGravity")
 local Impulse           = phase.new("Impulse")
 local WallCollision     = phase.new("WallCollision")
 local PostWallCollision = phase.new("PostWallCollision")
@@ -39,6 +40,7 @@ local Simulation = pipeline.new("Simulation")
 	:insert(PostCombat)
 	:insert(Movement)
 	:insert(Gravity)
+	:insert(PostGravity)
 	:insert(Impulse)
 	:insert(WallCollision)
 	:insert(PostWallCollision)
@@ -77,6 +79,7 @@ return {
 		PostCombat          = PostCombat,
 		Movement            = Movement,
 		Gravity             = Gravity,
+		PostGravity         = PostGravity,
 		Impulse             = Impulse,
 		WallCollision       = WallCollision,
 		PostWallCollision   = PostWallCollision,

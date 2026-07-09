@@ -25,6 +25,8 @@ local Components = {
 	DECELERATION = world:component(),
 	GRAVITY_SCALE = world:component(),
 	FLOOR_NORMAL = world:component(),
+	WIND = world:component(),  -- singleton: global wind acceleration (Vector3, studs/s^2)
+	BOUNCINESS = world:component(),  -- per-entity restitution 0..1 (fraction of vertical speed kept per bounce)
 
 	-- Player identity
 	PLAYER = world:component(),
@@ -42,6 +44,7 @@ local Components = {
 	COMBO_CONFIG      = world:component(),  -- { Steps, WindowTime }
 	INTERACTION_VARS  = world:component(),  -- { VarName = chainTemplate } for Replace node
 	SELECTOR          = world:component(),  -- "Raycast" / "AOE" / "Melee"
+	LAUNCH_ANGLE      = world:component(),  -- kick config: launch elevation in degrees
 
 	-- Timers & Cooldowns (pair-based, ticked by TimerSystem / CooldownSystem)
 	TIMER = world:component(),

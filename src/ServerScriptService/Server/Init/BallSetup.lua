@@ -31,9 +31,11 @@ function BallSetup.spawn()
 
 	local ballEntity = world:entity()
 	world:add(ballEntity, tags.BALL)
+	world:add(ballEntity, tags.WIND_AFFECTED)
 	world:set(ballEntity, components.POSITION, SPAWN_POSITION)
 	world:set(ballEntity, components.VELOCITY, Vector3.zero)
 	world:set(ballEntity, components.GRAVITY_SCALE, 1.0)
+	world:set(ballEntity, components.BOUNCINESS, 0.5)  -- 0 = dead, 1 = perfectly elastic
 	world:set(ballEntity, components.ROOTPART, ballPart)
 	world:set(ballEntity, components.INSTANCE, ballPart)
 	-- Lets ServerStateStampSystem stamp SERVER_* for replication (value unused —

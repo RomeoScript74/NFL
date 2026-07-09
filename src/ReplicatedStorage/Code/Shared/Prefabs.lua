@@ -229,6 +229,7 @@ function Prefabs.Interactions(world)
 	})
 	world:set(components.Kick, components.COOLDOWN_CONFIG, { Duration = 1.0 })
 	world:set(components.Kick, components.INTERACTION_RULES, {})
+	world:set(components.Kick, components.LAUNCH_ANGLE, 45)  -- degrees; tune at runtime
 end
 
 return Prefabs
