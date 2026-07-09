@@ -1,0 +1,15 @@
+[package]
+name = "ptmer/nfl"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+jecs = "ukendio/jecs@0.10.4"
+planck = "yetanotherclown/planck@0.3.0-rc.2"
+planck-jabby = "yetanotherclown/planck-jabby@0.2.0"
+planck-runservice = "yetanotherclown/planck-runservice@0.2.0"
+jabby = "alicesaidhi/jabby@0.5.1"
+replecs = "pepeeltoro41/replecs@0.3.1"
+jecs-utils = "pepeeltoro41/jecs-utils@=1.4.1"
+fusion = "elttob/fusion@0.3.0"

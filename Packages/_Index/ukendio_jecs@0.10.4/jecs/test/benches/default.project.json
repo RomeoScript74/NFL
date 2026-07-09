@@ -1,0 +1,28 @@
+{
+  "name": "jecs",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "DevPackages": {
+        "$path": "visual/DevPackages"
+      },
+      "Lib": {
+        "$path": "../../src/jecs.luau"
+      },
+      "benches": {
+        "$path": "visual"
+      },
+      "mirror": {
+        "$path": "../../src/mirror.luau"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "tests"
+      }
+    }
+  }
+}

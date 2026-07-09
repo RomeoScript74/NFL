@@ -1,0 +1,13 @@
+# tasks.txt — one task per line, agent-loop.ps1 processes them in order
+# Lines starting with # are ignored
+# Be specific: one system per task, state what phase it belongs to
+
+# ── Shared systems ───────────────────────────────────────────────────────────
+Implement InputToIntentSystem in src/ReplicatedStorage/Code/Shared/Systems/ — converts INPUT_FLAGS bitmask to INPUT_STATE with pressed/held/released per action, runs in PreCombat phase
+Implement a ScoreSystem in src/ReplicatedStorage/Code/Shared/Systems/ — tracks HOME_SCORE and AWAY_SCORE components as singletons, phase: MainScheduler PostSimulation
+
+# ── Server systems ───────────────────────────────────────────────────────────
+# Implement PlayerMovementSystem in src/ServerScriptService/Server/Systems/ — reads INPUT_STATE, writes VELOCITY, phase: PhysicsScheduler Move
+
+# ── Client systems ───────────────────────────────────────────────────────────
+# Implement InputBridgeSystem in src/ReplicatedStorage/Code/Client/Systems/ — polls UserInputService, writes INPUT_FLAGS bitmask, phase: PreRender

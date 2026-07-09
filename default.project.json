@@ -1,0 +1,34 @@
+{
+  "name": "nfl",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "$path": "src/ReplicatedStorage",
+      "Packages": {
+        "$className": "Folder",
+        "$path": "Packages"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "$path": "src/ServerScriptService"
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "$path": "src/ServerStorage"
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterCharacterScripts": {
+        "$className": "StarterCharacterScripts",
+        "$ignoreUnknownInstances": true,
+        "$path": "src/StarterPlayer/StarterCharacterScripts"
+      },
+      "$ignoreUnknownInstances": true
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "PlanckRunService",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "DevPackages": {
+        "$path": "DevPackages"
+      },
+      "Packages": {
+        "Project": {
+          "$path": "dist/src"
+        },
+        "$path": "Packages"
+      }
+    },
+    "ServerScriptService": {
+      "run-tests": {
+        "$path": "dist/run-tests.server.luau"
+      }
+    }
+  }
+}
