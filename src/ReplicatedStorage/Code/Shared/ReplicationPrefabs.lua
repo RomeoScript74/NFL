@@ -48,11 +48,17 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 end
 
 -- Item entity: ball, interactable object — no owner, position replicated to all.
-function ReplicationPrefabs.applyItem(world, entity)
+function ReplicationPrefabs.applyBall(world, entity)
 	world:add(entity, replecs.networked)
 
-	world:set(entity, pair(replecs.unreliable, components.POSITION), {})
-	world:set(entity, pair(replecs.unreliable, components.VELOCITY), {})
+	-- Reliable: interpolation data + tags
+	world:add(entity, pair(replecs.reliable, components.SERVER_POSITION))
+	world:add(entity, pair(replecs.reliable, components.SERVER_VELOCITY))
+	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
+
+	-- Unreliable: fast position for simple lerp (optional, interpolator uses SERVER_*)
+	world:add(entity, pair(replecs.unreliable, components.POSITION))
+	world:add(entity, pair(replecs.unreliable, components.VELOCITY))
 
 	world:add(entity, pair(replecs.relation, components.OwnedBy))
 end

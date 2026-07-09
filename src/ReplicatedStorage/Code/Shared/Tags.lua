@@ -6,6 +6,7 @@ local Tags = {
 	PREDICTED       = jecs.tag(),
 	IS_NPC          = jecs.tag(),
 	IS_GROUNDED     = jecs.tag(),
+	BALL            = jecs.tag(),
 
 	-- Client-only: set by ClientIdentity observer on characters owned by LocalPlayer.
 	LOCAL_CHARACTER = jecs.tag(),
