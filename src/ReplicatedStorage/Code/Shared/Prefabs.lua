@@ -42,7 +42,6 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 		Jump   = { pressed = false, held = false, released = false },
 		Juke   = { pressed = false, held = false, released = false },
 		Dive   = { pressed = false, held = false, released = false },
-		Kick   = { pressed = false, held = false, released = false },
 	})
 
 	-- Interaction
@@ -61,7 +60,6 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Snap),   components.Snap)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Sprint), components.Sprint)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Catch),  components.Catch)
-	world:set(entity, pair(components.HAS_INTERACTION, components.Kick),   components.Kick)
 
 	-- Netcode
 	world:set(entity, components.STATE_HISTORY, {})
@@ -215,19 +213,6 @@ function Prefabs.Interactions(world)
 	})
 	world:set(components.Catch, components.COOLDOWN_CONFIG, { Duration = 1.0 })
 	world:set(components.Catch, components.INTERACTION_RULES, {})
-
-	-- Kick (hold K to charge, release to launch the ball)
-	world:set(components.Kick, components.CHAIN_DEF, {
-		Type = "Serial",
-		Children = {
-			{ Type = "CooldownCondition", CooldownId = "CD_KICK" },
-			{ Type = "HoldToCharge", MaxChargeTime = 1.2, MetaKey = "Charge" },
-			{ Type = "TriggerCooldown", CooldownId = "CD_KICK" },
-			{ Type = "PushEvent", Queue = "Kick", ForwardMeta = true },
-		},
-	})
-	world:set(components.Kick, components.COOLDOWN_CONFIG, { Duration = 1.0 })
-	world:set(components.Kick, components.INTERACTION_RULES, {})
 end
 
 return Prefabs

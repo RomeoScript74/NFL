@@ -12,7 +12,6 @@ local rawInput = {
 	r = false,
 	shift = false,
 	f = false,
-	k = false,
 	mouseDelta = Vector2.zero,
 	leftThumbstickDelta = Vector2.zero,
 	rightThumbstickDelta = Vector2.zero,
@@ -43,8 +42,6 @@ UserInputService.InputBegan:Connect(function(input, sink)
 		rawInput.shift = true
 	elseif input.KeyCode == Enum.KeyCode.F then
 		rawInput.f = true
-	elseif input.KeyCode == Enum.KeyCode.K then
-		rawInput.k = true
 	end
 end)
 
@@ -79,8 +76,6 @@ UserInputService.InputEnded:Connect(function(input, sink)
 		rawInput.shift = false
 	elseif input.KeyCode == Enum.KeyCode.F then
 		rawInput.f = false
-	elseif input.KeyCode == Enum.KeyCode.K then
-		rawInput.k = false
 	end
 end)
 
@@ -138,7 +133,6 @@ local function deriveActionState(deltaTime: number)
 			juke = rawInput.r,
 			sprint = rawInput.shift,
 			dive = rawInput.f,
-			kick = rawInput.k,
 		},
 		value2d = {
 			move = keyboardMove + gamepadMove,
@@ -156,7 +150,6 @@ local ACTIONS_BOOLEAN = {
 	juke = true,
 	sprint = true,
 	dive = true,
-	kick = true,
 }
 
 local ACTIONS_2D = {

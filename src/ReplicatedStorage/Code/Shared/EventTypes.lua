@@ -29,9 +29,6 @@ local EventQueues = {
 
 	-- Ground jump: Jump interaction node -> GroundJumpImpulseSystem
 	GroundJump = EventQueue.new(128),
-
-	-- Kick (hold-to-charge): Kick interaction chain -> KickImpulseSystem
-	Kick = EventQueue.new(128),
 }
 
 return EventQueues
