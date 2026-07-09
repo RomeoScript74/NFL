@@ -308,6 +308,162 @@ Fixed-capacity ring buffer for typed ECS events. Use `bit32.band` not `&` for in
 
 ---
 
+## Timing Budget Reference
+
+| Layer | Rate | Latency |
+|-------|------|---------|
+| Client input send | 60 Hz | ~0 ms |
+| Network RTT | variable | ~50–150 ms |
+| Server input buffer | TargetSize=2 ticks | ~33 ms |
+| Reliable send throttle | 20 Hz | 0–50 ms |
+| Unreliable send throttle | 30 Hz | 0–33 ms |
+| Interpolation buffer delay | fixed | 100 ms |
+
+---
+
+## Known Pitfalls & Debugging Lessons
+
+### 1. `replicator:after_replication` fires immediately before `apply_full`
+
+**The trap**: `after_replication(callback)` runs the callback **immediately** when `is_replicating` is false. Since it's usually registered before `apply_full`, it fires before entities exist. The callback is then **cleared** (`table.clear` in `finish_replication`) and **never fires again** after `apply_full`.
+
+**Wrong**:
+```lua
+replicator:after_replication(function() -- fires NOW, entities don't exist yet
+    resolveRootParts()
+end)
+local buf = WaitForServer.Call()
+replicator:apply_full(buf, variants)    -- callback already cleared, never fires here
+```
+
+**Right**:
+```lua
+local buf = WaitForServer.Call()
+replicator:apply_full(buf, variants)
+-- Call DIRECTLY after apply_full — entities exist.
+resolveRootParts()
+-- For ongoing updates, use replicator:added + dirty flag + after_replication
+-- (see RootPartResolver pattern in Client/Init/Networking.lua)
+```
+
+### 2. Never replicate Roblox Instance references
+
+**The trap**: Raw `ROOTPART` (HumanoidRootPart Instance) replicated via Zap's Instance table causes `"received instance is nil!"` crash when the character model hasn't streamed to the client yet. Zap serializes Instances as indices into `incoming_inst`; if the Instance doesn't exist on the client, it's nil → crash.
+
+**Rule**: Instance references (BaseParts, Models) must **never** go on the wire. Resolve them locally from the `PLAYER` component:
+```lua
+local player = world:get(playerEntity, components.PLAYER)
+local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+```
+The `PLAYER` component (Player Instance) IS safe to replicate — it's a UserId-backed reference, not a streaming-dependent Instance.
+
+### 3. jecs 0.10.4: `world:query(pair(Rel, Wildcard))` target iteration variable is nil
+
+**The trap**: `for entity, target in world:query(pair(OwnedBy, jecs.Wildcard))` — the **second** iteration variable (`target`) can be **nil** even though the pair exists. The query correctly finds entities; only the target extraction via iteration variable is unreliable. This happens when entities are created out of order during `apply_full` (target entity doesn't exist yet when the pair is processed).
+
+**Wrong**:
+```lua
+for charEntity, playerEntity in world:query(pair(components.OwnedBy, jecs.Wildcard)) do
+    -- playerEntity may be nil!
+    local player = world:get(playerEntity, components.PLAYER) -- CRASH
+end
+```
+
+**Right** — query finds entities, extract target separately:
+```lua
+-- Pattern A: single iteration variable + world:target
+for charEntity in world:query(pair(components.OwnedBy, jecs.Wildcard)) do
+    local playerEntity = world:target(charEntity, components.OwnedBy)
+    if not playerEntity then continue end
+    local player = world:get(playerEntity, components.PLAYER)
+end
+
+-- Pattern B: collectTargets utility (for multi-target pairs like TIMER, COOLDOWN)
+for entity in world:query(pair(components.TIMER, jecs.Wildcard)) do
+    for _, target in collectTargets(entity, components.TIMER) do
+        -- safe mutation during iteration
+    end
+end
+```
+
+**Existing valid usage**: `CooldownSystem` and `TimerSystem` use `for entity in world:query(pair(X, Wildcard))` (single variable) + `collectTargets()` — this is correct and safe.
+
+### 4. jecs 0.10.4: `jecsUtils.monitor` misses new archetypes
+
+**The trap**: `jecsUtils.monitor(query).added(callback)` pre-computes which archetypes match the query at **registration time**. If the target archetype (e.g. entity with `OwnedBy + ROOTPART`) doesn't exist yet, transitions into it are **never detected**.
+
+**Wrong**:
+```lua
+-- Registered when no entity has OwnedBy+ROOTPART yet → archetype doesn't exist
+jecsUtils.monitor(world:query(pair(OwnedBy, playerEntity), components.ROOTPART))
+    .added(function(entity) ... end) -- NEVER fires
+```
+
+**Right** — use `world:added(component, callback)` directly (reactive, no pre-computation):
+```lua
+local conn = world:added(components.ROOTPART, function(entity)
+    if entity ~= targetEntity then return end
+    conn() -- world:added returns a disconnect FUNCTION, not an object
+    -- handle the component being added
+end)
+```
+
+### 5. `world:added` returns a function, not an object
+
+**The trap**: `world:added(component, callback)` returns a **disconnect function**, not an object with a `:disconnect()` method.
+
+**Wrong**: `conn:disconnect()` — crashes with "attempt to index function with 'disconnect'"
+**Right**: `conn()` — calls the disconnect function directly
+
+### 6. Monitors fire before relationship targets are resolved
+
+**The trap**: During `apply_full`, entities are created and components are applied in server-serialized order. A `jecsUtils.monitor(query).added(callback)` fires the instant the entity matches the query (e.g. has `REMOTE_TICK + SERVER_POSITION`). But at that moment, `world:target(entity, OwnedBy)` returns **nil** — the pair's target entity hasn't been mapped from server ID to client ID yet. Replecs entity remapping happens asynchronously within the batch.
+
+**Symptom**: `[RemoteInterp] playerEntity: nil` — monitor fires, entity found, but relationship target not resolved. ROOTPART can't be set because OwnedBy → PLAYER → Character chain is broken.
+
+**Why polling works**: A system that runs every frame at `PreSimulation` retries `world:target(entity, OwnedBy)` until the relationship resolves (usually next frame). It doesn't care about entity creation order within `apply_full`.
+
+**Rule**: Monitors are for **intra-component** reactions (entity gained `SERVER_POSITION` — seed interpolation). Polling systems are for **cross-entity** initialization (entity has OwnedBy → need to find the PLAYER entity → need to find the Character → need to find the HRP).
+
+**Pattern used in `InitCharacterSystem`**:
+```lua
+-- Monitor: seeds interpolation (single-entity, no relationships needed)
+jecsUtils.monitor(remoteQuery).added(function(entity)
+    world:set(entity, SNAPSHOT_BUFFER, {...})  -- reads SERVER_POSITION directly
+end)
+
+-- Polling system: resolves cross-entity chain (OwnedBy → PLAYER → Character → HRP)
+local function initCharacterSystem()
+    for charEntity in world:query(SERVER_POSITION) do
+        local playerEntity = world:target(charEntity, OwnedBy)  -- may be nil frame 1, ok frame 2
+        if not playerEntity then continue end
+        -- ...
+    end
+end
+```
+
+### 7. `Character:FindFirstChild` can return nil before streaming
+
+**The trap**: `player.Character:FindFirstChild("HumanoidRootPart")` can return nil if the character model hasn't fully streamed. Use `CharacterAdded` event to retry.
+
+**Pattern used in `RootPartResolver`**:
+```lua
+local function tryResolve()
+    if not player.Character then return false end
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    world:set(charEntity, components.ROOTPART, hrp)
+    return true
+end
+if not tryResolve() then
+    player.CharacterAdded:Connect(function()
+        if tryResolve() then ... end  -- retry when character spawns
+    end)
+end
+```
+
+---
+
 ## No Defensive Checks
 
 In systems don't add defensive checks that can be filtered by queries. If you have a system that processes entities with components A and B, do not add a check to see if the entity has component A or B — make sure the query only returns entities that have both. Also in observers, defensive checks usually aren't needed — the query should filter fine-grained enough. Only use defensive checks when truly needed and unavoidable.

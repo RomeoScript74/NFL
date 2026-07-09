@@ -16,9 +16,10 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local _hrp = character:WaitForChild("HumanoidRootPart")
 
--- local _nodes = require(ReplicatedStorage.Code.Shared.Init.InitInteractions)
+local _nodes = require(ReplicatedStorage.Code.Shared.Init.InitInteractions)
 local _ref = require(ReplicatedStorage.Code.Shared.Init.Ref)
 local _remoteInterp = require(ReplicatedStorage.Code.Client.Init.RemoteInterpolationInit)()
+local _ballInit = require(ReplicatedStorage.Code.Client.Init.BallInit)()
 local _network = require(ReplicatedStorage.Code.Client.Init.Networking)
 
 -- apply_full has completed, all ECS entities exist. Resolve ROOTPART + promote local.

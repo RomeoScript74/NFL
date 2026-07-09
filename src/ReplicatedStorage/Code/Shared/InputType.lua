@@ -14,6 +14,7 @@
 	  bit 7: JUKE
 	  bit 8: SPRINT
 	  bit 9: DIVE
+	  bit 10: KICK
 ]]
 
 local bit32 = bit32
@@ -32,6 +33,7 @@ local InputType = {
 	JUKE     = 128,
 	SPRINT   = 256,
 	DIVE     = 512,
+	KICK     = 1024,
 }
 
 -- Check if a flag is set in the mask.

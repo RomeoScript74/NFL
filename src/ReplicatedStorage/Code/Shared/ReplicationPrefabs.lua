@@ -57,4 +57,17 @@ function ReplicationPrefabs.applyItem(world, entity)
 	world:add(entity, pair(replecs.relation, components.OwnedBy))
 end
 
+-- Ball entity: server-authoritative, no owner. Replicated to everyone via the
+-- SERVER_* channel so clients render it through RemoteVisualInterpolator with no
+-- prediction — identical netcode path to remote characters, minus the owner filter.
+function ReplicationPrefabs.applyBall(world, entity)
+	world:add(entity, replecs.networked)
+
+	world:add(entity, pair(replecs.reliable, components.SERVER_TICK))
+	world:add(entity, pair(replecs.reliable, components.SERVER_POSITION))
+	world:add(entity, pair(replecs.reliable, components.SERVER_VELOCITY))
+	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
+	world:add(entity, pair(replecs.reliable, tags.BALL))
+end
+
 return ReplicationPrefabs

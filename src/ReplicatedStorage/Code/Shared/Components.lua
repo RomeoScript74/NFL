@@ -83,6 +83,7 @@ local Components = {
 	CD_JUKE   = world:component(),
 	CD_DIVE   = world:component(),
 	CD_JUMP   = world:component(),
+	CD_KICK   = world:component(),
 
 	-- NFL Definition Entities (pair targets for HAS_INTERACTION)
 	Throw  = world:entity(),
@@ -93,6 +94,7 @@ local Components = {
 	Snap   = world:entity(),
 	Sprint = world:entity(),
 	Catch  = world:entity(),
+	Kick   = world:entity(),
 
 	-- Relationships (pairs)
 	OwnedBy = world:component(),
