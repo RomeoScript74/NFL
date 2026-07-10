@@ -19,7 +19,7 @@ local FIXED_DT = 1 / 60
 
 local windQuery = world:query(
 	components.VELOCITY
-):with(tags.WIND_AFFECTED):cached()
+):with(tags.WIND_AFFECTED):without(tags.PHYSICS_DISABLED):cached()
 
 local function windSystem()
 	local wind = world:get(components.WIND, components.WIND)

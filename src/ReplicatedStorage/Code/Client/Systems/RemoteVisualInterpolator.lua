@@ -42,7 +42,7 @@ local remoteQuery = world:query(
 	components.INTERP_DRIFT,
 	components.INTERP_LAST_CLOCK,
 	components.ROOTPART
-):without(tags.PREDICTED):cached()
+):without(tags.PREDICTED, tags.BALL):cached()
 
 local function remoteVisualInterpolator()
 	local now = os.clock()

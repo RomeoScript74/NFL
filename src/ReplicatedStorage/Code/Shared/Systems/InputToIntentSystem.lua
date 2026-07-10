@@ -23,7 +23,7 @@ local FLAG_TO_ACTION = {
 	DIVE   = "Dive",
 	TACKLE = "Tackle",
 	PASS   = "Throw",
-	KICK   = "Kick",
+	GRAB   = "Grab",
 }
 
 local stateQuery = world:query(

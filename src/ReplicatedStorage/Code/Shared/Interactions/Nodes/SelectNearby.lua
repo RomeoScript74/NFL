@@ -16,19 +16,27 @@ local NodeRegistry = require(ReplicatedStorage.Code.Shared.Interactions.NodeRegi
 local FAILURE = NodeRegistry.FAILURE
 local SUCCESS = NodeRegistry.SUCCESS
 
--- One cached query per candidate tag, shared across every chain instance.
-local queryByTag = {}
-local function candidateQuery(tag)
-	local q = queryByTag[tag]
+-- One cached query per (candidate tag, optional exclusion tag), shared across all chains.
+-- The node stays generic: WHAT to exclude is data, declared in the chain def's config
+-- (e.g. Without = "PHYSICS_DISABLED" so grab skips carried balls), not hardcoded here.
+local queryCache = {}
+local function candidateQuery(tag, withoutTag)
+	local key = tostring(tag) .. "|" .. tostring(withoutTag)
+	local q = queryCache[key]
 	if not q then
-		q = world:query(components.POSITION):with(tag):cached()
-		queryByTag[tag] = q
+		local builder = world:query(components.POSITION):with(tag)
+		if withoutTag then
+			builder = builder:without(withoutTag)
+		end
+		q = builder:cached()
+		queryCache[key] = q
 	end
 	return q
 end
 
 NodeRegistry.register("SelectNearby", function(config)
 	local tag = tags[config.Tag]
+	local withoutTag = if config.Without then tags[config.Without] else nil
 	local range = config.Range or 10
 	local rangeSq = range * range
 
@@ -39,7 +47,7 @@ NodeRegistry.register("SelectNearby", function(config)
 			if not userPos then return FAILURE end
 
 			local nearest, nearestSq = nil, rangeSq
-			for entity, pos in candidateQuery(tag) do
+			for entity, pos in candidateQuery(tag, withoutTag) do
 				if entity == ctx.user then continue end
 				local dx, dz = pos.X - userPos.X, pos.Z - userPos.Z
 				local dSq = dx * dx + dz * dz

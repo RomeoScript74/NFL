@@ -78,8 +78,8 @@ local function inputBridgeSystem()
 		if Input.pressed("dive") then
 			flags = bit32.bor(flags, InputType.DIVE)
 		end
-		if Input.pressed("kick") then
-			flags = bit32.bor(flags, InputType.KICK)
+		if Input.pressed("grab") then
+			flags = bit32.bor(flags, InputType.GRAB)
 		end
 
 		-- Write to client ECS (for local prediction use)

@@ -42,7 +42,7 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 		Jump   = { pressed = false, held = false, released = false },
 		Juke   = { pressed = false, held = false, released = false },
 		Dive   = { pressed = false, held = false, released = false },
-		Kick   = { pressed = false, held = false, released = false },
+		Grab   = { pressed = false, held = false, released = false },
 	})
 
 	-- Interaction
@@ -61,7 +61,7 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Snap),   components.Snap)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Sprint), components.Sprint)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Catch),  components.Catch)
-	world:set(entity, pair(components.HAS_INTERACTION, components.Kick),   components.Kick)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Grab),   components.Grab)
 
 	-- Netcode
 	world:set(entity, components.STATE_HISTORY, {})
@@ -116,16 +116,20 @@ end
 -- The PushEvent node pushes to EventTypes, drained by impulse systems.
 
 function Prefabs.Interactions(world)
-	-- Throw (QB pass)
+	-- Throw (hold to charge, release to throw the carried ball along your look direction).
+	-- SelectCarried both validates "am I carrying a ball" and provides the ball as the
+	-- target; if you aren't carrying, it fails the chain (no throw, no cooldown consumed).
 	world:set(components.Throw, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
 			{ Type = "CooldownCondition", CooldownId = "CD_PASS" },
+			{ Type = "HoldToCharge", MaxTime = 1.5 },
+			{ Type = "SelectCarried" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_PASS" },
 			{ Type = "PushEvent", Queue = "Throw" },
 		},
 	})
-	world:set(components.Throw, components.COOLDOWN_CONFIG, { Duration = 3.0 })
+	world:set(components.Throw, components.COOLDOWN_CONFIG, { Duration = 0.5 })
 	world:set(components.Throw, components.INTERACTION_RULES, {
 		BlockedBy = { components.Tackle },
 		InterruptedBy = { components.Tackle },
@@ -216,20 +220,20 @@ function Prefabs.Interactions(world)
 	world:set(components.Catch, components.COOLDOWN_CONFIG, { Duration = 1.0 })
 	world:set(components.Catch, components.INTERACTION_RULES, {})
 
-	-- Kick (hold K near the ball to charge, release to launch it in an arc)
-	world:set(components.Kick, components.CHAIN_DEF, {
+	-- Grab (press near a loose ball to pick it up and carry it).
+	-- SelectNearby finds the closest loose ball in range (it skips PHYSICS_DISABLED, so
+	-- carried balls aren't grabbable); GrabSystem then attaches it to the carrier.
+	world:set(components.Grab, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
-			{ Type = "CooldownCondition", CooldownId = "CD_KICK" },
-			{ Type = "HoldToCharge", MaxTime = 1.5 },
-			{ Type = "SelectNearby", Tag = "BALL", Range = 10 },
-			{ Type = "TriggerCooldown", CooldownId = "CD_KICK" },
-			{ Type = "PushEvent", Queue = "Kick" },
+			{ Type = "CooldownCondition", CooldownId = "CD_GRAB" },
+			{ Type = "SelectNearby", Tag = "BALL", Range = 10, Without = "PHYSICS_DISABLED" },
+			{ Type = "TriggerCooldown", CooldownId = "CD_GRAB" },
+			{ Type = "PushEvent", Queue = "Grab" },
 		},
 	})
-	world:set(components.Kick, components.COOLDOWN_CONFIG, { Duration = 1.0 })
-	world:set(components.Kick, components.INTERACTION_RULES, {})
-	world:set(components.Kick, components.LAUNCH_ANGLE, 45)  -- degrees; tune at runtime
+	world:set(components.Grab, components.COOLDOWN_CONFIG, { Duration = 0.5 })
+	world:set(components.Grab, components.INTERACTION_RULES, {})
 end
 
 return Prefabs

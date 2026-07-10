@@ -68,6 +68,11 @@ function ReplicationPrefabs.applyBall(world, entity)
 	world:add(entity, pair(replecs.reliable, components.SERVER_VELOCITY))
 	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
 	world:add(entity, pair(replecs.reliable, tags.BALL))
+
+	-- Carry state: PHYSICS_DISABLED tells the client to attach (not interpolate) the ball,
+	-- and CARRIED_BY (a relation) tells it whose hand to attach it to.
+	world:add(entity, pair(replecs.reliable, tags.PHYSICS_DISABLED))
+	world:add(entity, pair(replecs.relation, components.CARRIED_BY))
 end
 
 return ReplicationPrefabs

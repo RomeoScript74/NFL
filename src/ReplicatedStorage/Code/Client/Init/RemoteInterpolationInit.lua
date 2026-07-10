@@ -16,7 +16,7 @@ return function()
 		components.REMOTE_TICK,
 		components.SERVER_POSITION,
 		components.SERVER_VELOCITY
-	):without(tags.PREDICTED)
+	):without(tags.PREDICTED, tags.BALL)
 
 	jecsUtils.monitor(remoteQuery).added(function(entity)
 		local pos = world:get(entity, components.SERVER_POSITION)

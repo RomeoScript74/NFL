@@ -9,6 +9,7 @@ local Tags = {
 	BALL            = jecs.tag(),
 	BALL_GROUNDED   = jecs.tag(),
 	WIND_AFFECTED   = jecs.tag(),
+	PHYSICS_DISABLED = jecs.tag(),  -- general "skip physics": carried balls, frozen entities, etc.
 
 	-- Client-only: set by ClientIdentity observer on characters owned by LocalPlayer.
 	LOCAL_CHARACTER = jecs.tag(),

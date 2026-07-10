@@ -44,7 +44,6 @@ local Components = {
 	COMBO_CONFIG      = world:component(),  -- { Steps, WindowTime }
 	INTERACTION_VARS  = world:component(),  -- { VarName = chainTemplate } for Replace node
 	SELECTOR          = world:component(),  -- "Raycast" / "AOE" / "Melee"
-	LAUNCH_ANGLE      = world:component(),  -- kick config: launch elevation in degrees
 
 	-- Timers & Cooldowns (pair-based, ticked by TimerSystem / CooldownSystem)
 	TIMER = world:component(),
@@ -86,7 +85,7 @@ local Components = {
 	CD_JUKE   = world:component(),
 	CD_DIVE   = world:component(),
 	CD_JUMP   = world:component(),
-	CD_KICK   = world:component(),
+	CD_GRAB   = world:component(),
 
 	-- NFL Definition Entities (pair targets for HAS_INTERACTION)
 	Throw  = world:entity(),
@@ -97,10 +96,14 @@ local Components = {
 	Snap   = world:entity(),
 	Sprint = world:entity(),
 	Catch  = world:entity(),
-	Kick   = world:entity(),
+	Grab   = world:entity(),
+
+	-- Carry state
+	CARRIED_BALL = world:component(),  -- on carrier: the ball entity it holds (server-only lookup)
 
 	-- Relationships (pairs)
 	OwnedBy = world:component(),
+	CARRIED_BY = world:component(),  -- pair(CARRIED_BY, carrier) on the ball → who holds it
 }
 
 -- Mark every component as replecs.shared with a name so Replecs resolves

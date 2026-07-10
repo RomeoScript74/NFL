@@ -27,7 +27,7 @@ local ballQuery = world:query(
 	components.VELOCITY,
 	components.ROOTPART,
 	components.BOUNCINESS
-):with(tags.BALL):cached()
+):with(tags.BALL):without(tags.PHYSICS_DISABLED):cached()
 
 local function ballGroundSystem()
 	for entity, pos, vel, rootPart, bounciness in ballQuery do

@@ -138,7 +138,7 @@ local function deriveActionState(deltaTime: number)
 			juke = rawInput.r,
 			sprint = rawInput.shift,
 			dive = rawInput.f,
-			kick = rawInput.k,
+			grab = rawInput.k,
 		},
 		value2d = {
 			move = keyboardMove + gamepadMove,
@@ -156,7 +156,7 @@ local ACTIONS_BOOLEAN = {
 	juke = true,
 	sprint = true,
 	dive = true,
-	kick = true,
+	grab = true,
 }
 
 local ACTIONS_2D = {

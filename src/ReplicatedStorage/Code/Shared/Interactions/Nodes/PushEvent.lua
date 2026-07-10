@@ -2,7 +2,7 @@
 -- interaction layer to the ECS impulse systems. This is the ONLY way interactions
 -- affect ECS state: they never call world:set/add/remove directly.
 --
--- Config: { Queue = "Kick" } — key into the EventTypes queue table.
+-- Config: { Queue = "Throw" } — key into the EventTypes queue table.
 -- The entry carries the acting entity plus any Charge/HoldTime meta set upstream
 -- (e.g. by HoldToCharge); those fields are nil for events that don't charge.
 

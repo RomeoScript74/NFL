@@ -10,7 +10,7 @@
 -- the ball by one tick's unopposed wind before friction ever got a chance to react,
 -- producing a constant, magnitude-independent creep no amount of friction could cancel.
 -- Running after Gravity fixes that: friction sees this tick's wind before Integration
--- reads velocity. It still runs BEFORE Impulse, so a kick's launch velocity (set that
+-- reads velocity. It still runs BEFORE Impulse, so a throw's launch velocity (set that
 -- same tick, while BALL_GROUNDED is still stale from last tick) is never dampened.
 -- Only touches X/Z; Y is owned by Gravity + BallGroundSystem. Server-only.
 
@@ -26,7 +26,7 @@ local REST_EPSILON = 0.05      -- below this horizontal speed, stop dead
 
 local frictionQuery = world:query(
 	components.VELOCITY
-):with(tags.BALL_GROUNDED):cached()
+):with(tags.BALL_GROUNDED):without(tags.PHYSICS_DISABLED):cached()
 
 local function ballFrictionSystem()
 	for entity, vel in frictionQuery do

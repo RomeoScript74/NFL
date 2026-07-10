@@ -14,6 +14,7 @@ require(Nodes.CooldownCondition)
 require(Nodes.TriggerCooldown)
 require(Nodes.HoldToCharge)
 require(Nodes.SelectNearby)
+require(Nodes.SelectCarried)
 require(Nodes.PushEvent)
 
 return {}
