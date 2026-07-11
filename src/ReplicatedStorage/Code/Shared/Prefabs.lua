@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local components = require(ReplicatedStorage.Code.Shared.Components)
 local tags = require(ReplicatedStorage.Code.Shared.Tags)
+local DashCalc = require(ReplicatedStorage.Code.Shared.DashCalc)
 
 local pair = jecs.pair
 
@@ -38,11 +39,11 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 		Throw  = { pressed = false, held = false, released = false },
 		Catch  = { pressed = false, held = false, released = false },
 		Tackle = { pressed = false, held = false, released = false },
-		Sprint = { pressed = false, held = false, released = false },
 		Jump   = { pressed = false, held = false, released = false },
 		Juke   = { pressed = false, held = false, released = false },
 		Dive   = { pressed = false, held = false, released = false },
 		Grab   = { pressed = false, held = false, released = false },
+		Dash   = { pressed = false, held = false, released = false },
 	})
 
 	-- Interaction
@@ -59,9 +60,9 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Dive),   components.Dive)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Jump),   components.Jump)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Snap),   components.Snap)
-	world:set(entity, pair(components.HAS_INTERACTION, components.Sprint), components.Sprint)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Catch),  components.Catch)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Grab),   components.Grab)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Dash),   components.Dash)
 
 	-- Netcode
 	world:set(entity, components.STATE_HISTORY, {})
@@ -106,6 +107,16 @@ function Prefabs.PredictedCharacter(world, entity, rootPart)
 	world:set(entity, components.LAST_RECONCILED_TICK, 0)
 	world:set(entity, components.VISUAL_OFFSET, Vector3.zero)
 	world:set(entity, components.PREV_POSITION, rootPart.Position)
+
+	-- Client-side interaction prediction, scoped to self-movement abilities. The server owns
+	-- INTERACTION_MANAGER/INPUT_STATE/HAS_INTERACTION for every action; the client re-registers
+	-- ONLY the predicted ones here so InteractionDispatchSystem ticks their chains locally.
+	-- Cross-entity actions (Throw/Grab/Tackle) are intentionally absent → they stay server-only.
+	world:set(entity, components.INTERACTION_MANAGER, { active = {}, cooldowns = {}, combos = {} })
+	world:set(entity, components.INPUT_STATE, {
+		Dash = { pressed = false, held = false, released = false },
+	})
+	world:set(entity, pair(components.HAS_INTERACTION, components.Dash), components.Dash)
 
 	return entity
 end
@@ -200,16 +211,6 @@ function Prefabs.Interactions(world)
 	world:set(components.Snap, components.COOLDOWN_CONFIG, { Duration = 1.0 })
 	world:set(components.Snap, components.INTERACTION_RULES, {})
 
-	-- Sprint (speed boost)
-	world:set(components.Sprint, components.CHAIN_DEF, {
-		Type = "Serial",
-		Children = {
-			{ Type = "PushEvent", Queue = "Sprint" },
-		},
-	})
-	world:set(components.Sprint, components.COOLDOWN_CONFIG, { Duration = 5.0 })
-	world:set(components.Sprint, components.INTERACTION_RULES, {})
-
 	-- Catch (receiver catches ball)
 	world:set(components.Catch, components.CHAIN_DEF, {
 		Type = "Serial",
@@ -234,6 +235,22 @@ function Prefabs.Interactions(world)
 	})
 	world:set(components.Grab, components.COOLDOWN_CONFIG, { Duration = 0.5 })
 	world:set(components.Grab, components.INTERACTION_RULES, {})
+
+	-- Dash (predicted self-movement burst). Instant chain: Condition blocks re-fire while the
+	-- burst window is active (DASHING); CooldownCondition gates on the server-authoritative
+	-- pair(COOLDOWN, CD_DASH); PushEvent hands off to the shared DashImpulseSystem, which owns the
+	-- burst velocity + DASH_WINDOW timer in ECS. Runs on client (prediction) and server (authority).
+	world:set(components.Dash, components.CHAIN_DEF, {
+		Type = "Serial",
+		Children = {
+			{ Type = "Condition", Tag = "DASHING", Invert = true },
+			{ Type = "CooldownCondition", CooldownId = "CD_DASH" },
+			{ Type = "TriggerCooldown", CooldownId = "CD_DASH" },
+			{ Type = "PushEvent", Queue = "Dash" },
+		},
+	})
+	world:set(components.Dash, components.COOLDOWN_CONFIG, { Duration = DashCalc.DASH_COOLDOWN_DURATION })
+	world:set(components.Dash, components.INTERACTION_RULES, {})
 end
 
 return Prefabs

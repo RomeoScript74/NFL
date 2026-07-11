@@ -18,9 +18,6 @@ local EventQueues = {
 	-- Tackle: TackleInteraction -> TackleSystem
 	Tackle = EventQueue.new(128),
 
-	-- Sprint burst: SprintInteraction -> SprintSystem
-	Sprint = EventQueue.new(128),
-
 	-- Juke: JukeInteraction -> JukeSystem
 	Juke = EventQueue.new(128),
 
@@ -32,6 +29,12 @@ local EventQueues = {
 
 	-- Grab: Grab interaction (SelectNearby -> PushEvent) -> GrabSystem
 	Grab = EventQueue.new(128),
+
+	-- Dash: Dash interaction (Condition -> CooldownCondition -> PushEvent) -> DashImpulseSystem (shared, predicted)
+	Dash = EventQueue.new(128),
+
+	-- StartCooldown: TriggerCooldown node -> CooldownStartSystem (applies pair(COOLDOWN, *) server-side)
+	StartCooldown = EventQueue.new(128),
 }
 
 return EventQueues

@@ -6,6 +6,7 @@ local Tags = {
 	PREDICTED       = jecs.tag(),
 	IS_NPC          = jecs.tag(),
 	IS_GROUNDED     = jecs.tag(),
+	DASHING         = jecs.tag(),  -- active dash window: excluded from ground movement so the burst coasts; derived from CD_DASH remaining
 	BALL            = jecs.tag(),
 	BALL_GROUNDED   = jecs.tag(),
 	WIND_AFFECTED   = jecs.tag(),

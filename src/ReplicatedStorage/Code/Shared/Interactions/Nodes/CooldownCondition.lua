@@ -1,10 +1,15 @@
--- CooldownCondition.lua — Gate: succeeds only if cooldown is available.
--- Hytale spec: always succeeds for NPCs.
--- Config: { CooldownId = CD_PASS } — defaults to ctx.interactionDef if omitted.
+-- CooldownCondition.lua — Gate: succeeds only if the interaction is off cooldown.
+-- Reads the server-authoritative pair(COOLDOWN, CD_*) presence straight from ECS (the pair is
+-- replicated to the owner). Present = on cooldown = FAILURE. Always succeeds for NPCs.
+-- Config: { CooldownId = "CD_DASH" } — string key into components for the cooldown target entity.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local jecs = require(ReplicatedStorage.Packages.jecs)
+local components = require(ReplicatedStorage.Code.Shared.Components)
+local world = require(ReplicatedStorage.Code.Shared.World)
 local NodeRegistry = require(ReplicatedStorage.Code.Shared.Interactions.NodeRegistry)
 
+local pair = jecs.pair
 local FAILURE = NodeRegistry.FAILURE
 local SUCCESS = NodeRegistry.SUCCESS
 
@@ -14,11 +19,11 @@ NodeRegistry.register("CooldownCondition", function(config)
 		execute = function(_self, ctx)
 			if ctx.chain.isNPC then return SUCCESS end
 
-			local cdId = config.CooldownId or ctx.interactionDef
-			local cd = ctx.manager.cooldowns[cdId]
-			if not cd then return SUCCESS end
-			if cd.charges and cd.charges > 0 then return SUCCESS end
-			return FAILURE
+			local cdEntity = components[config.CooldownId]
+			if cdEntity and world:has(ctx.user, pair(components.COOLDOWN, cdEntity)) then
+				return FAILURE
+			end
+			return SUCCESS
 		end,
 	}
 end)

@@ -1,15 +1,22 @@
 -- ReconciliationSystem.lua — Detects desync when server state arrives, snaps to
 -- server-authoritative position, replays predicted inputs to catch back up.
 -- Overwatch-style: snap + replay, then smooth visual offset to zero.
--- Stripped of FPS-specific combat/dash cooldown reconciliation.
+-- Predicted dash cooldown + burst (pair(COOLDOWN, CD_DASH) / DASH_WINDOW) are restored to the
+-- server-authoritative values before the replay loop, then re-simulated (input-replay rollback).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local jecs = require(ReplicatedStorage.Packages.jecs)
 local components = require(ReplicatedStorage.Code.Shared.Components)
 local tags = require(ReplicatedStorage.Code.Shared.Tags)
 local world = require(ReplicatedStorage.Code.Shared.World)
 local scheduler = require(ReplicatedStorage.Code.Shared.Scheduler)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 local phase = require(ReplicatedStorage.Packages["planck-runservice"]).Phases
+
+-- Predicted dash cooldown pair — restored from SERVER_DASH_CD before the replay loop.
+local DASH_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_DASH)
+-- Predicted dash burst timer — restored from SERVER_DASH_WINDOW before the replay loop.
+local DASH_WINDOW_TIMER = jecs.pair(components.TIMER, components.DASH_WINDOW)
 
 local HORIZONTAL_THRESHOLD = 1.5
 local VERTICAL_GROUNDED   = 1.1
@@ -19,6 +26,8 @@ local reconciliationQuery = world:query(
 	components.SERVER_TICK,
 	components.SERVER_POSITION,
 	components.SERVER_VELOCITY,
+	components.SERVER_DASH_CD,
+	components.SERVER_DASH_WINDOW,
 	components.INPUT_HISTORY,
 	components.LAST_RECONCILED_TICK,
 	components.POSITION,
@@ -28,7 +37,7 @@ local reconciliationQuery = world:query(
 ):with(tags.PREDICTED):cached()
 
 local function reconciliationSystem()
-	for entity, serverTick, serverPos, serverVel, history, lastReconciled, pos, inputDir, inputFlags, visualOffset in reconciliationQuery do
+	for entity, serverTick, serverPos, serverVel, serverDashCd, serverDashWindow, history, lastReconciled, pos, inputDir, inputFlags, visualOffset in reconciliationQuery do
 		if serverTick == lastReconciled then continue end
 		world:set(entity, components.LAST_RECONCILED_TICK, serverTick)
 
@@ -69,6 +78,29 @@ local function reconciliationSystem()
 
 		world:set(entity, components.POSITION, serverPos)
 		world:set(entity, components.VELOCITY, serverVel)
+
+		-- Restore the predicted dash burst to the server-authoritative value at serverTick
+		-- before replay (AAA/Overwatch style: the whole predicted snapshot — position, velocity,
+		-- AND ability state — rolls back, then re-simulates). A server-confirmed dash restores its
+		-- remaining window here so replayed ticks keep coasting; an unconfirmed dash restores 0
+		-- and the replayed DASH input re-fires it. Either way replay reconstructs exactly.
+		if serverDashWindow > 0 then
+			world:set(entity, DASH_WINDOW_TIMER, serverDashWindow)
+			world:add(entity, tags.DASHING)
+		else
+			world:remove(entity, tags.DASHING)
+			world:remove(entity, DASH_WINDOW_TIMER)
+		end
+
+		-- Restore the PREDICTED cooldown to the server value at serverTick, then the replay
+		-- re-ticks it (CooldownSystem) from the correct anchor. Without this, each replay
+		-- over-decrements the predicted cooldown and the client re-fires dash early. 0 = off
+		-- cooldown, so remove the pair.
+		if serverDashCd > 0 then
+			world:set(entity, DASH_CD_PAIR, serverDashCd)
+		else
+			world:remove(entity, DASH_CD_PAIR)
+		end
 
 		-- Suppress observers/VFX during replay
 		world:set(components.IS_REPLAYING, components.IS_REPLAYING, true)

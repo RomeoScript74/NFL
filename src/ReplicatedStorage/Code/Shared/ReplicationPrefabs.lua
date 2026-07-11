@@ -22,6 +22,12 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	world:add(entity, pair(replecs.reliable, components.SERVER_TICK))
 	world:add(entity, pair(replecs.reliable, components.SERVER_POSITION))
 	world:add(entity, pair(replecs.reliable, components.SERVER_VELOCITY))
+	-- Reconciliation anchors: SERVER_DASH_CD restores the PREDICTED cooldown, SERVER_DASH_WINDOW
+	-- restores the PREDICTED burst — both re-applied before the replay loop. The cooldown pair
+	-- itself is NOT replicated: it's client-predicted, and replicating it would overwrite the
+	-- prediction with the server value (which can't carry a sub-tick cooldown clear).
+	world:add(entity, pair(replecs.reliable, components.SERVER_DASH_CD))
+	world:add(entity, pair(replecs.reliable, components.SERVER_DASH_WINDOW))
 	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
 	-- ROOTPART is a raw Roblox Instance — replicating it causes "received
 	-- instance is nil!" on slow/rejoining clients when the instance hasn't

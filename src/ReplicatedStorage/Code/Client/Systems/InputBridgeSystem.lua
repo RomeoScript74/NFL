@@ -81,6 +81,9 @@ local function inputBridgeSystem()
 		if Input.pressed("grab") then
 			flags = bit32.bor(flags, InputType.GRAB)
 		end
+		if Input.pressed("dash") then
+			flags = bit32.bor(flags, InputType.DASH)
+		end
 
 		-- Write to client ECS (for local prediction use)
 		world:set(entity, components.YAW, cameraYaw)
