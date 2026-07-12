@@ -18,7 +18,7 @@ local DASH_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_DASH)
 -- Predicted dash burst timer — restored from SERVER_DASH_WINDOW before the replay loop.
 local DASH_WINDOW_TIMER = jecs.pair(components.TIMER, components.DASH_WINDOW)
 
-local HORIZONTAL_THRESHOLD = 1.5
+local HORIZONTAL_THRESHOLD = 0  -- reconcile on ANY horizontal error (collision stays smooth)
 local VERTICAL_GROUNDED   = 1.1
 local VERTICAL_AIR        = 0.5
 
@@ -75,6 +75,11 @@ local function reconciliationSystem()
 
 		-- Desync detected: snap to server state, replay remaining history
 		local oldClientPos = pos
+
+		-- DEBUG: reconciliation fired. corr = where the server moved us vs our prediction —
+		-- a sideways corr on a straight walk-in means the collision picked opposite sides.
+		local corr = serverPos - predictedPos
+		print(string.format("[RECON] tick=%d  hErr=%.2f  corr=(%.2f, %.2f)", serverTick, horizontalError, corr.X, corr.Z))
 
 		world:set(entity, components.POSITION, serverPos)
 		world:set(entity, components.VELOCITY, serverVel)

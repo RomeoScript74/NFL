@@ -38,8 +38,14 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	world:add(entity, pair(replecs.reliable, components.ACCELERATION))
 	world:add(entity, pair(replecs.reliable, components.DECELERATION))
 	world:add(entity, pair(replecs.reliable, components.GRAVITY_SCALE))
+	-- COLLIDER_RADIUS: per-character, needed on the client so predicted collision (and remote
+	-- obstacle checks) know each character's cylinder size.
+	world:add(entity, pair(replecs.reliable, components.COLLIDER_RADIUS))
 	world:add(entity, pair(replecs.reliable, components.SERVER_COMBAT_STATE))
 	world:add(entity, pair(replecs.reliable, tags.IS_NPC))
+	-- CHARACTER: replicated so remote characters carry the collision filter on the client
+	-- (obstacle query filters on it instead of relying on COLLIDER_RADIUS presence).
+	world:add(entity, pair(replecs.reliable, tags.CHARACTER))
 
 	-- Snapshot model: POSITION/VELOCITY are NEVER replicated — they are always
 	-- local (predicted on owner, computed from SERVER_* on remotes). Only the

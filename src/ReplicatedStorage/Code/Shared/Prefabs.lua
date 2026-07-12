@@ -29,6 +29,8 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 	world:set(entity, components.ACCELERATION, 2000)
 	world:set(entity, components.DECELERATION, 2000)
 	world:set(entity, components.GRAVITY_SCALE, 1.0)
+	world:set(entity, components.COLLIDER_RADIUS, 1.5)
+	world:add(entity, tags.CHARACTER)
 
 	-- Input
 	world:set(entity, components.INPUT_DIRECTION, Vector3.zero)

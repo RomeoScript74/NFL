@@ -25,6 +25,7 @@ local Components = {
 	DECELERATION = world:component(),
 	GRAVITY_SCALE = world:component(),
 	FLOOR_NORMAL = world:component(),
+	COLLIDER_RADIUS = world:component(),  -- character cylinder radius (studs) for character-vs-character collision
 	WIND = world:component(),  -- singleton: global wind acceleration (Vector3, studs/s^2)
 	BOUNCINESS = world:component(),  -- per-entity restitution 0..1 (fraction of vertical speed kept per bounce)
 	DASH_WINDOW = world:component(),  -- target for pair(TIMER, DASH_WINDOW): the dash burst timer (ticks remaining), ticked by TimerSystem; DASHING lives while it exists

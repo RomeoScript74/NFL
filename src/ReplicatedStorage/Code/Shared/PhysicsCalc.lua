@@ -8,6 +8,10 @@ local STEP_UP_SPEED = 24
 local MAX_STEP_HEIGHT = 1.25
 local FLOOR_PROBE_RADIUS = 0.5
 
+-- Vertical half-extent of a character cylinder (studs). Two characters only push apart when their
+-- vertical ranges overlap, so someone cleanly above another (jumping over) isn't shoved sideways.
+local CHARACTER_HALF_HEIGHT = 2.5
+
 local FLOOR_PROBE_OFFSETS = {
 	Vector3.zero,
 	Vector3.new(FLOOR_PROBE_RADIUS, 0, 0),
@@ -145,6 +149,40 @@ function PhysicsCalc.resolveFloorCollision(
 	end
 
 	return pos, vel, false, nil
+end
+
+-- Character-vs-character cylinder separation. Models each character as a vertical cylinder: an XZ
+-- circle (COLLIDER_RADIUS) plus a vertical range (CHARACTER_HALF_HEIGHT). Returns the FULL XZ push
+-- for A to exit B (Y = 0), or Vector3.zero if they don't overlap. The server splits it (half each);
+-- a client pushes its own predicted player the full amount. Stateless.
+function PhysicsCalc.separation(posA: Vector3, radiusA: number, posB: Vector3, radiusB: number): Vector3
+	local dx = posA.X - posB.X
+	local dz = posA.Z - posB.Z
+	local distSq = dx * dx + dz * dz
+	local minDist = radiusA + radiusB
+
+	-- No XZ overlap.
+	if distSq >= minDist * minDist then
+		return Vector3.zero
+	end
+
+	-- No vertical overlap → stacked, not side-by-side; don't shove.
+	if math.abs(posA.Y - posB.Y) >= CHARACTER_HALF_HEIGHT * 2 then
+		return Vector3.zero
+	end
+
+	local dist = math.sqrt(distSq)
+	local penetration = minDist - dist
+
+	-- Separation direction (from B toward A). Exactly coincident → pick an arbitrary axis.
+	local nx, nz
+	if dist > 1e-4 then
+		nx, nz = dx / dist, dz / dist
+	else
+		nx, nz = 1, 0
+	end
+
+	return Vector3.new(nx * penetration, 0, nz * penetration)
 end
 
 return PhysicsCalc

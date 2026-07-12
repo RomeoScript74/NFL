@@ -7,6 +7,7 @@ local Tags = {
 	IS_NPC          = jecs.tag(),
 	IS_GROUNDED     = jecs.tag(),
 	DASHING         = jecs.tag(),  -- active dash window: excluded from ground movement so the burst coasts; derived from CD_DASH remaining
+	CHARACTER       = jecs.tag(),  -- collidable player character: the explicit filter for character-vs-character collision (never rely on COLLIDER_RADIUS presence)
 	BALL            = jecs.tag(),
 	BALL_GROUNDED   = jecs.tag(),
 	WIND_AFFECTED   = jecs.tag(),
