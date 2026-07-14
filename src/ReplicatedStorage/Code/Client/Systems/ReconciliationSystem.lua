@@ -18,7 +18,7 @@ local DASH_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_DASH)
 -- Predicted dash burst timer — restored from SERVER_DASH_WINDOW before the replay loop.
 local DASH_WINDOW_TIMER = jecs.pair(components.TIMER, components.DASH_WINDOW)
 
-local HORIZONTAL_THRESHOLD = 0  -- reconcile on ANY horizontal error (collision stays smooth)
+local HORIZONTAL_THRESHOLD = 0  -- TEMP (diagnosing): reconcile on ANY error, no cushion
 local VERTICAL_GROUNDED   = 1.1
 local VERTICAL_AIR        = 0.5
 
@@ -60,6 +60,13 @@ local function reconciliationSystem()
 		local horizontalError = Vector3.new(diff.X, 0, diff.Z).Magnitude
 		local verticalError = math.abs(diff.Y)
 
+			-- DIAGNOSTIC: true error magnitude (hi-precision) + our input, whether or not it crosses
+			-- the desync threshold — tells float dust (~0.00x studs, inDir 0) from a real systematic
+			-- offset (steady non-tiny hErr even with inDir 0).
+			if horizontalError > 0.0001 or verticalError > 0.0001 then
+				print(string.format("[RECON-DBG2] tick=%d  hErr=%.5f  vErr=%.5f  inDir=%.3f", serverTick, horizontalError, verticalError, inputDir.Magnitude))
+			end
+
 		local isGrounded = world:has(entity, tags.IS_GROUNDED)
 		local verticalThreshold = isGrounded and VERTICAL_GROUNDED or VERTICAL_AIR
 
@@ -79,7 +86,8 @@ local function reconciliationSystem()
 		-- DEBUG: reconciliation fired. corr = where the server moved us vs our prediction —
 		-- a sideways corr on a straight walk-in means the collision picked opposite sides.
 		local corr = serverPos - predictedPos
-		print(string.format("[RECON] tick=%d  hErr=%.2f  corr=(%.2f, %.2f)", serverTick, horizontalError, corr.X, corr.Z))
+		local braced = world:has(entity, tags.BRACED)
+		print(string.format("[RECON] tick=%d  hErr=%.2f  vErr=%.2f  corr=(%.2f, %.2f, %.2f)  braced=%s", serverTick, horizontalError, verticalError, corr.X, corr.Y, corr.Z, tostring(braced)))
 
 		world:set(entity, components.POSITION, serverPos)
 		world:set(entity, components.VELOCITY, serverVel)

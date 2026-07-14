@@ -21,13 +21,18 @@ local groundMoveQuery = world:query(
 
 local FIXED_DT = 1 / 60
 local SPRINT_SPEED_MULTIPLIER = 1.5
+local BRACE_SPEED_MULTIPLIER = 0.4
 
 local function charGroundVelocitySystem()
 	for entity, vel, dir, flags, speed, accel, decel, _gravScale in groundMoveQuery do
-		local effectiveSpeed = if InputType.has(flags, InputType.SPRINT)
-			then speed * SPRINT_SPEED_MULTIPLIER
-			else speed
-			
+		-- Brace stance overrides sprint: you plant and move slowly.
+		local effectiveSpeed = speed
+		if InputType.has(flags, InputType.BRACE) then
+			effectiveSpeed = speed * BRACE_SPEED_MULTIPLIER
+		elseif InputType.has(flags, InputType.SPRINT) then
+			effectiveSpeed = speed * SPRINT_SPEED_MULTIPLIER
+		end
+
 		local newVel = PhysicsCalc.calculateMovement(vel, dir, effectiveSpeed, accel, decel, FIXED_DT)
 		world:set(entity, components.VELOCITY, newVel)
 	end

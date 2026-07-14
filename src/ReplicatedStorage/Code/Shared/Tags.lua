@@ -8,6 +8,7 @@ local Tags = {
 	IS_GROUNDED     = jecs.tag(),
 	DASHING         = jecs.tag(),  -- active dash window: excluded from ground movement so the burst coasts; derived from CD_DASH remaining
 	CHARACTER       = jecs.tag(),  -- collidable player character: the explicit filter for character-vs-character collision (never rely on COLLIDER_RADIUS presence)
+	BRACED          = jecs.tag(),  -- brace stance active (BRACE input flag held): immovable in collision (pusher takes full separation). Derived from INPUT_FLAGS by BraceStateSystem; not replicated.
 	BALL            = jecs.tag(),
 	BALL_GROUNDED   = jecs.tag(),
 	WIND_AFFECTED   = jecs.tag(),

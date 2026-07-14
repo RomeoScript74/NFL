@@ -3,8 +3,18 @@
 -- takes the full separation — that's what keeps it from sinking into them). Runs in PostCollision
 -- → replays during reconciliation, so the local player never phases through.
 --
--- Remote characters are interpolated: their rendered position lives on the ROOTPART (POSITION is
--- never replicated), so obstacle positions come from rootPart.Position — what the player sees.
+-- Brace: a braced player is immovable only while PLANTED (no move input) — the defensive anchor.
+-- While WALKING it collides normally, so it stays solid and can't phase through anyone.
+--
+-- After pushing out, the velocity component driving the player into the wall is removed (mirrors the
+-- server) so predicted velocity matches SERVER_VELOCITY and reconciliation stays clean.
+--
+-- Remote characters are interpolated: their rendered position lives on the ROOTPART, so obstacle
+-- positions come from rootPart.Position — what the player sees, so contact looks correct. The cost:
+-- continuous collision against a moving remote can't be perfectly reconcile-free (client uses the
+-- rendered/past position, the server the true one). Ambient bump-collision is left soft and
+-- forgiving; the contact that decides plays (blocks/tackles) is a discrete lag-compensated
+-- interaction, not this layer.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local components = require(ReplicatedStorage.Code.Shared.Components)
@@ -14,18 +24,41 @@ local PhysicsCalc = require(ReplicatedStorage.Code.Shared.PhysicsCalc)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 
 -- CHARACTER is the explicit collision filter; COLLIDER_RADIUS is read for the cylinder size.
-local predictedQuery = world:query(components.POSITION, components.COLLIDER_RADIUS):with(tags.CHARACTER, tags.PREDICTED):cached()
--- Remote characters: CHARACTER-tagged, minus the local predicted player.
+-- Unbraced local player: always pushes itself fully out (the sink-proof baseline).
+local unbracedQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS):with(tags.CHARACTER, tags.PREDICTED):without(tags.BRACED):cached()
+-- Braced local player: only pushes out while walking (INPUT_DIRECTION carries the move intent).
+local bracedQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS, components.INPUT_DIRECTION):with(tags.CHARACTER, tags.PREDICTED, tags.BRACED):cached()
+-- Remote characters: CHARACTER-tagged, minus the local predicted player. Collide against the
+-- rendered rootPart position — what the player sees.
 local obstacleQuery = world:query(components.ROOTPART, components.COLLIDER_RADIUS):with(tags.CHARACTER):without(tags.PREDICTED):cached()
 
-local function clientCharacterCollisionSystem()
-	for entity, pos, radius in predictedQuery do
-		local push = Vector3.zero
-		for _, rootPart, otherRadius in obstacleQuery do
-			push = push + PhysicsCalc.separation(pos, radius, rootPart.Position, otherRadius)
+-- Full push-out of the local player against every remote obstacle, then cancel velocity into the wall.
+local function pushOut(entity: number, pos: Vector3, vel: Vector3, radius: number)
+	local push = Vector3.zero
+	for _, rootPart, otherRadius in obstacleQuery do
+		push = push + PhysicsCalc.separation(pos, radius, rootPart.Position, otherRadius)
+	end
+	if push ~= Vector3.zero then 
+		world:set(entity, components.POSITION, pos + push) 
+
+		local n = push.Unit
+		local intoWall = vel:Dot(n)
+		if intoWall < 0 then
+			world:set(entity, components.VELOCITY, vel - n * intoWall)
 		end
-		if push ~= Vector3.zero then
-			world:set(entity, components.POSITION, pos + push)
+	end
+end
+
+local function clientCharacterCollisionSystem()
+	for entity, pos, vel, radius in unbracedQuery do
+		pushOut(entity, pos, vel, radius)
+	end
+
+	-- Braced: immovable while planted (skip → matches the server keeping it still), solid while
+	-- walking (push out → can't phase through). The plow of the other player is server-authoritative.
+	for entity, pos, vel, radius, dir in bracedQuery do
+		if dir.Magnitude > 0 then
+			pushOut(entity, pos, vel, radius)
 		end
 	end
 end

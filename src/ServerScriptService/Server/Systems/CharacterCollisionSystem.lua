@@ -1,7 +1,12 @@
 -- CharacterCollisionSystem.lua — Server-authoritative character-vs-character collision. Models
--- each character as a vertical cylinder (COLLIDER_RADIUS) and symmetrically pushes overlapping
--- pairs apart (half each). Runs in PostCollision (after floor collision has settled Y this tick),
--- N² over all characters.
+-- each character as a vertical cylinder (COLLIDER_RADIUS) and separates overlapping pairs, split by
+-- inverse-mass. Runs in PostCollision (after floor collision has settled Y this tick), N² over all
+-- characters. A braced character (BraceStateSystem owns BRACED) is immovable (weight 0) — its
+-- partner takes the whole push; two braced split evenly to stay solid.
+--
+-- After pushing a character out, we also kill its velocity component INTO the obstacle. Otherwise a
+-- blocked character's position sits still while its (replicated) velocity still points into the
+-- wall, and observers' Hermite interpolation bulges it forward and back — a visible vibration.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local components = require(ReplicatedStorage.Code.Shared.Components)
@@ -11,38 +16,69 @@ local PhysicsCalc = require(ReplicatedStorage.Code.Shared.PhysicsCalc)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 
 -- CHARACTER tag is the explicit collision filter; COLLIDER_RADIUS is read for the cylinder size.
-local collisionQuery = world:query(components.POSITION, components.COLLIDER_RADIUS):with(tags.CHARACTER):cached()
+local collisionQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS):with(tags.CHARACTER):cached()
+-- Braced characters are immovable (weight 0); gathered into a set so the N² loop reads a weight.
+local bracedQuery = world:query():with(tags.CHARACTER, tags.BRACED):cached()
 
 -- Reused across ticks so a steady state allocates nothing.
 local entities = {}
 local positions = {}
+local velocities = {}
 local radii = {}
+local weights = {}  -- inverse-mass: 1 = movable, 0 = braced (immovable)
 local pushes = {}
+local bracedSet = {}
 
 local function characterCollisionSystem()
+	table.clear(bracedSet)
+	for entity in bracedQuery do
+		bracedSet[entity] = true
+	end
+
 	local count = 0
-	for entity, pos, radius in collisionQuery do
+	for entity, pos, vel, radius in collisionQuery do
 		count += 1
 		entities[count] = entity
 		positions[count] = pos
+		velocities[count] = vel
 		radii[count] = radius
+		weights[count] = bracedSet[entity] and 0 or 1
 		pushes[count] = Vector3.zero
 	end
 
-	-- N² pairs: each character in an overlapping pair moves half the penetration.
+	-- N² pairs split the separation by inverse-mass — two movable go half each; a braced one stays
+	-- put and its partner takes the whole push; two braced (total 0) split evenly to stay solid.
 	for i = 1, count - 1 do
 		for j = i + 1, count do
 			local sep = PhysicsCalc.separation(positions[i], radii[i], positions[j], radii[j])
 			if sep ~= Vector3.zero then
-				pushes[i] = pushes[i] + sep * 0.5
-				pushes[j] = pushes[j] - sep * 0.5
+				local wi, wj = weights[i], weights[j]
+				local total = wi + wj
+				local fi, fj
+				if total > 0 then
+					fi, fj = wi / total, wj / total
+				else
+					fi, fj = 0.5, 0.5
+				end
+				pushes[i] = pushes[i] + sep * fi
+				pushes[j] = pushes[j] - sep * fj
 			end
 		end
 	end
 
 	for i = 1, count do
-		if pushes[i] ~= Vector3.zero then
-			world:set(entities[i], components.POSITION, positions[i] + pushes[i])
+		local push = pushes[i]
+		if push ~= Vector3.zero then
+			world:set(entities[i], components.POSITION, positions[i] + push)
+
+			-- Remove the velocity component pushing this character back into what it was ejected
+			-- from, so its replicated velocity doesn't point into the wall (no interp vibration).
+			local n = push.Unit
+			local vel = velocities[i]
+			local intoWall = vel:Dot(n)
+			if intoWall < 0 then
+				world:set(entities[i], components.VELOCITY, vel - n * intoWall)
+			end
 		end
 	end
 end

@@ -16,6 +16,7 @@
 	  bit 9: DIVE
 	  bit 10: GRAB
 	  bit 11: DASH
+	  bit 12: BRACE
 ]]
 
 local bit32 = bit32
@@ -36,6 +37,7 @@ local InputType = {
 	DIVE     = 512,
 	GRAB     = 1024,
 	DASH     = 2048,
+	BRACE    = 4096,
 }
 
 -- Check if a flag is set in the mask.
