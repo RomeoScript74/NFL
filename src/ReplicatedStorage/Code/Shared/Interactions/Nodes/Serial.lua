@@ -27,7 +27,10 @@ NodeRegistry.register("Serial", function(config)
 		execute = function(self, ctx)
 			while self.childIndex <= #self.children do
 				local child = self.children[self.childIndex]
-				local status = child:execute(ctx)
+				-- A realm-gated child (side="server"/"client") that doesn't belong here counts as an
+				-- automatic pass-through — same as tickChain's top-level skip behavior.
+				local status = NodeRegistry.isSkipped(child) 
+				and SUCCESS or child:execute(ctx)
 
 				if status == FAILURE then
 					return FAILURE

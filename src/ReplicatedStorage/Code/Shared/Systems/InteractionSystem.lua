@@ -33,10 +33,13 @@ local DT = 1 / 60
 
 -- ═══════════════ Query ═══════════════
 
+-- STUNNED characters can't act: a stunned player's chains freeze and no new intent starts. The
+-- query is the gate (no defensive check in the body). STUNNED replicates, so the owner's predicted
+-- character freezes in lockstep with the server.
 local characterQuery = world:query(
 	components.INTERACTION_MANAGER,
 	components.INPUT_STATE
-):cached()
+):without(tags.STUNNED):cached()
 
 -- ═══════════════ Lifecycle Hooks ═══════════════
 
@@ -253,10 +256,9 @@ local function tickChain(character, chain)
 		chain._speedMult = node.HorizontalSpeedMultiplier
 	end
 
-	-- Side gate: restrict node execution to one environment
-	local skipNode = (node.side == "server" and IS_CLIENT)
-		or (node.side == "client" and not IS_CLIENT)
-	if skipNode then
+	-- Side gate: restrict node execution to one environment (shared with every container node —
+	-- NodeRegistry.isSkipped is the one place this decision is made).
+	if NodeRegistry.isSkipped(node) then
 		chain._speedMult = nil
 		chain._runTimeRemaining = nil
 		if node.Next then

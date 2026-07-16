@@ -29,6 +29,8 @@ local Components = {
 	WIND = world:component(),  -- singleton: global wind acceleration (Vector3, studs/s^2)
 	BOUNCINESS = world:component(),  -- per-entity restitution 0..1 (fraction of vertical speed kept per bounce)
 	DASH_WINDOW = world:component(),  -- target for pair(TIMER, DASH_WINDOW): the dash burst timer (ticks remaining), ticked by TimerSystem; DASHING lives while it exists
+	TACKLE_WINDOW = world:component(),  -- target for pair(TIMER, TACKLE_WINDOW): the tackler's forward-launch coast timer; TACKLING lives while it exists
+	STUN_WINDOW = world:component(),  -- target for pair(TIMER, STUN_WINDOW): stun duration (ticks remaining); STUNNED lives while it exists
 
 	-- Player identity
 	PLAYER = world:component(),
@@ -57,6 +59,8 @@ local Components = {
 	SERVER_VELOCITY = world:component(),
 	SERVER_DASH_CD = world:component(),  -- authoritative CD_DASH remaining at SERVER_TICK; reconciliation restores the PREDICTED pair(COOLDOWN, CD_DASH) to this before replay
 	SERVER_DASH_WINDOW = world:component(),  -- authoritative DASH_WINDOW remaining at SERVER_TICK; reconciliation restores DASH_WINDOW to this before replay
+	SERVER_TACKLE_CD = world:component(),  -- authoritative CD_TACKLE remaining at SERVER_TICK; reconciliation restores the PREDICTED pair(COOLDOWN, CD_TACKLE) before replay
+	SERVER_TACKLE_WINDOW = world:component(),  -- authoritative TACKLE_WINDOW remaining at SERVER_TICK; reconciliation restores the predicted launch coast (TACKLING + TACKLE_WINDOW) before replay
 	CLOCK_SYNC = world:component(),
 
 	-- Networking (server → client unreliable)

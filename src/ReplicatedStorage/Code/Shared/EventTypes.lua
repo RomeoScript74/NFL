@@ -15,8 +15,24 @@ local EventQueues = {
 	-- Catch: CatchInteraction -> CatchSystem
 	Catch = EventQueue.new(128),
 
-	-- Tackle: TackleInteraction -> TackleSystem
+	-- Tackle: TackleInteraction -> TackleLaunchSystem
 	Tackle = EventQueue.new(128),
+
+	-- TackleLand: TackleSweep node, on a landed hit -> TackleLaunchSystem (ends the coast immediately
+	-- instead of sliding through the now-stunned target for the rest of the dive window)
+	TackleLand = EventQueue.new(128),
+
+	-- Stun: any stun source (TackleSystem today; blocks/trips/abilities later) -> StunSystem
+	Stun = EventQueue.new(128),
+
+	-- Fumble: any ball-loose cause (TackleSystem today; strips/big hits later) -> FumbleSystem
+	Fumble = EventQueue.new(128),
+
+	-- Interrupt: any cause that should cancel a target's in-progress interaction (TackleSweep on a
+	-- landed hit today) -> InterruptSystem. Deliberately separate from Stun — being stunned and
+	-- having your action cancelled are independent consequences (mirrors Hytale's InterruptInteraction
+	-- being its own node, not an automatic side effect of a stun/status system).
+	Interrupt = EventQueue.new(128),
 
 	-- Juke: JukeInteraction -> JukeSystem
 	Juke = EventQueue.new(128),

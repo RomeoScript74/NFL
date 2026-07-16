@@ -462,6 +462,30 @@ if not tryResolve() then
 end
 ```
 
+### 8. jecs 0.10.4: `:with()`/`:without()` do not chain — a second call silently overwrites the first
+
+**The trap**: `query:with(A):with(B)` and `query:without(A):without(B)` each REPLACE the previous filter — they don't merge. Only the LAST call's arguments survive (for `:with`, plus the base components passed to `world:query(...)`). Confirmed in the vendored source (`query_with`/`query_without` in `jecs.luau`): both unconditionally do `query.filter_with = {...}` / `query.filter_without = {...}` from only the current call's args — neither ever reads the query's existing filter to merge into it.
+
+**Wrong**:
+```lua
+local query = world:query(components.VELOCITY, ...)
+    :with(tags.IS_GROUNDED)
+    :with(tags.PREDICTED)     -- SILENTLY drops IS_GROUNDED from the filter
+    :cached()
+```
+
+**Right** — pass every filter to ONE call:
+```lua
+local query = world:query(components.VELOCITY, ...)
+    :with(tags.IS_GROUNDED, tags.PREDICTED)
+    :cached()
+```
+Same rule for `:without(A, B, C)` — never chain, always one call with all args.
+
+**Real incidents this caused**:
+1. `RemoteVisualInterpolator`'s `:without(PREDICTED):without(PHYSICS_DISABLED)` dropped the PREDICTED exclusion, so the local predicted character matched the remote-interpolation query and rendered ~150ms behind — looked like "my character stopped predicting."
+2. `ClientCharGroundVelocitySystem`'s `:with(IS_GROUNDED):with(PREDICTED)` dropped IS_GROUNDED, applying ground-movement acceleration to the predicted character even while airborne — a client/server physics mismatch that surfaced as reconciliation churn around jumps.
+
 ---
 
 ## No Defensive Checks

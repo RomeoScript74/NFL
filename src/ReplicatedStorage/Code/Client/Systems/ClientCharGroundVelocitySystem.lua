@@ -17,7 +17,7 @@ local groundMoveQuery = world:query(
 	components.ACCELERATION,
 	components.DECELERATION,
 	components.GRAVITY_SCALE
-):with(tags.IS_GROUNDED):with(tags.PREDICTED):without(tags.DASHING):cached()
+):with(tags.IS_GROUNDED, tags.PREDICTED):without(tags.DASHING, tags.TACKLING, tags.STUNNED):cached()
 
 local FIXED_DT = 1 / 60
 local SPRINT_SPEED_MULTIPLIER = 1.5

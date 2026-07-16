@@ -13,6 +13,9 @@
 --
 -- The registry builds nodes from config tables via NodeRegistry.build(config).
 
+local RunService = game:GetService("RunService")
+local IS_CLIENT = RunService:IsClient()
+
 local NodeRegistry = {}
 
 -- ═══════════════ Internal State ═══════════════
@@ -25,6 +28,16 @@ local registry = {}
 NodeRegistry.SUCCESS = "success"
 NodeRegistry.FAILURE = "failure"
 NodeRegistry.RUNNING = "running"
+
+-- ═══════════════ Realm Gating ═══════════════
+-- A node's `side` field ("server" or "client") means "only execute in this realm." This is the ONE
+-- place that decision is made — every execute() call site (tickChain's top-level dispatch, and every
+-- container node: Serial, Parallel, Repeat-via-Serial) MUST route through this before calling
+-- child:execute(), or `side` silently does nothing for nodes nested at that depth.
+function NodeRegistry.isSkipped(node)
+	return (node.side == "server" and IS_CLIENT)
+		or (node.side == "client" and not IS_CLIENT)
+end
 
 -- ═══════════════ Registration ═══════════════
 
@@ -109,6 +122,12 @@ function NodeRegistry.build(config)
 	end
 	if config.Effects then
 		node.Effects = config.Effects
+	end
+	-- side: "server" or "client" — read by tickChain to skip this node entirely on the other realm.
+	-- Only takes effect on a TOP-LEVEL node (a chain's currentNode, reached via Next/Failed); a
+	-- container (Serial/Parallel/Repeat) calls child:execute() directly and never checks child.side.
+	if config.side then
+		node.side = config.side
 	end
 
 	return node

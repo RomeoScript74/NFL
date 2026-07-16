@@ -26,7 +26,10 @@ NodeRegistry.register("Parallel", function(config)
 		execute = function(self, ctx)
 			local anyRunning = false
 			for _, child in self.children do
-				local status = child:execute(ctx)
+				-- A realm-gated child that doesn't belong here counts as an automatic pass-through.
+				local status = NodeRegistry.isSkipped(child) 
+				and SUCCESS or child:execute(ctx)
+				
 				if status == FAILURE then
 					return FAILURE
 				elseif status == RUNNING then

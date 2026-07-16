@@ -28,6 +28,10 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	-- prediction with the server value (which can't carry a sub-tick cooldown clear).
 	world:add(entity, pair(replecs.reliable, components.SERVER_DASH_CD))
 	world:add(entity, pair(replecs.reliable, components.SERVER_DASH_WINDOW))
+	-- Tackle anchors: same pattern as dash — SERVER_TACKLE_CD restores the predicted cooldown,
+	-- SERVER_TACKLE_WINDOW restores the predicted launch coast (TACKLING + TACKLE_WINDOW) on replay.
+	world:add(entity, pair(replecs.reliable, components.SERVER_TACKLE_CD))
+	world:add(entity, pair(replecs.reliable, components.SERVER_TACKLE_WINDOW))
 	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
 	-- ROOTPART is a raw Roblox Instance — replicating it causes "received
 	-- instance is nil!" on slow/rejoining clients when the instance hasn't
@@ -46,6 +50,9 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	-- CHARACTER: replicated so remote characters carry the collision filter on the client
 	-- (obstacle query filters on it instead of relying on COLLIDER_RADIUS presence).
 	world:add(entity, pair(replecs.reliable, tags.CHARACTER))
+	-- STUNNED: server-authoritative tackle outcome. Replicated so remotes render the stun and the
+	-- owner's prediction stops driving movement while frozen (otherwise a 1s stun reconciles for 1s).
+	world:add(entity, pair(replecs.reliable, tags.STUNNED))
 
 	-- Snapshot model: POSITION/VELOCITY are NEVER replicated — they are always
 	-- local (predicted on owner, computed from SERVER_* on remotes). Only the

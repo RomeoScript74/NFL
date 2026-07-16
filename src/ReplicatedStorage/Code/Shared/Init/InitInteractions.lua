@@ -16,5 +16,7 @@ require(Nodes.HoldToCharge)
 require(Nodes.SelectNearby)
 require(Nodes.SelectCarried)
 require(Nodes.PushEvent)
+require(Nodes.TackleSweep)
+require(Nodes.Interrupt)
 
 return {}

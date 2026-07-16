@@ -17,8 +17,12 @@ local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 
 -- CHARACTER tag is the explicit collision filter; COLLIDER_RADIUS is read for the cylinder size.
 local collisionQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS):with(tags.CHARACTER):cached()
--- Braced characters are immovable (weight 0); gathered into a set so the N² loop reads a weight.
+-- Braced characters are immovable (weight 0). Cached queries answer membership directly via :has()
+-- (O(1), always live off the entity's current archetype) — no need to gather a parallel set.
 local bracedQuery = world:query():with(tags.CHARACTER, tags.BRACED):cached()
+-- Diving tacklers: their dive is resolved by TackleSweep (the decisive layer), not this ambient
+-- push-apart — :has() lets the N² loop exempt tackler-vs-non-braced pairs directly.
+local tacklingQuery = world:query():with(tags.CHARACTER, tags.TACKLING):cached()
 
 -- Reused across ticks so a steady state allocates nothing.
 local entities = {}
@@ -27,14 +31,8 @@ local velocities = {}
 local radii = {}
 local weights = {}  -- inverse-mass: 1 = movable, 0 = braced (immovable)
 local pushes = {}
-local bracedSet = {}
 
 local function characterCollisionSystem()
-	table.clear(bracedSet)
-	for entity in bracedQuery do
-		bracedSet[entity] = true
-	end
-
 	local count = 0
 	for entity, pos, vel, radius in collisionQuery do
 		count += 1
@@ -42,7 +40,7 @@ local function characterCollisionSystem()
 		positions[count] = pos
 		velocities[count] = vel
 		radii[count] = radius
-		weights[count] = bracedSet[entity] and 0 or 1
+		weights[count] = bracedQuery:has(entity) and 0 or 1
 		pushes[count] = Vector3.zero
 	end
 
@@ -50,6 +48,15 @@ local function characterCollisionSystem()
 	-- put and its partner takes the whole push; two braced (total 0) split evenly to stay solid.
 	for i = 1, count - 1 do
 		for j = i + 1, count do
+			-- A diving tackler phases through everyone except a braced target (brace is a deliberate
+			-- wall — it should still stop a dive on contact). Otherwise this ambient push would fight
+			-- TackleSweep's resolve: a fast lunge overlaps the runner's rendered position and stops
+			-- here, while the sweep independently misses (favor-the-runner) — two different answers,
+			-- the server wins, and the tackler reconciles backward.
+			local iDiving = tacklingQuery:has(entities[i]) and not bracedQuery:has(entities[j])
+			local jDiving = tacklingQuery:has(entities[j]) and not bracedQuery:has(entities[i])
+			if iDiving or jDiving then continue end
+
 			local sep = PhysicsCalc.separation(positions[i], radii[i], positions[j], radii[j])
 			if sep ~= Vector3.zero then
 				local wi, wj = weights[i], weights[j]

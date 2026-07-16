@@ -113,12 +113,17 @@ function Prefabs.PredictedCharacter(world, entity, rootPart)
 	-- Client-side interaction prediction, scoped to self-movement abilities. The server owns
 	-- INTERACTION_MANAGER/INPUT_STATE/HAS_INTERACTION for every action; the client re-registers
 	-- ONLY the predicted ones here so InteractionDispatchSystem ticks their chains locally.
-	-- Cross-entity actions (Throw/Grab/Tackle) are intentionally absent → they stay server-only.
+	-- Tackle is a SPLIT action: its own-body launch is predicted here (shared TackleLaunchSystem
+	-- runs on both realms), but its cross-entity RESOLVE (the TackleSweep node's contact check ->
+	-- hit stun+fumble / whiff stun) is gated server-only inside the node itself.
+	-- Fully cross-entity actions (Throw/Grab) are intentionally absent → they stay server-only.
 	world:set(entity, components.INTERACTION_MANAGER, { active = {}, cooldowns = {}, combos = {} })
 	world:set(entity, components.INPUT_STATE, {
-		Dash = { pressed = false, held = false, released = false },
+		Dash   = { pressed = false, held = false, released = false },
+		Tackle = { pressed = false, held = false, released = false },
 	})
-	world:set(entity, pair(components.HAS_INTERACTION, components.Dash), components.Dash)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Dash),   components.Dash)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Tackle), components.Tackle)
 
 	return entity
 end
@@ -148,13 +153,22 @@ function Prefabs.Interactions(world)
 		InterruptedBy = { components.Tackle },
 	})
 
-	-- Tackle
+	-- Tackle: cooldown gate -> start cooldown -> launch (predicted on both realms) -> TackleSweep
+	-- (side="server") -> Interrupt (side="server"). Serial itself honors `side` on every child via
+	-- NodeRegistry.isSkipped, so the client's copy of this chain never calls TackleSweep's or
+	-- Interrupt's execute at all — no special structuring needed to realm-gate a step. On a hit,
+	-- Serial continues past TackleSweep's SUCCESS into Interrupt in the SAME tick/ctx (Serial doesn't
+	-- return between children on SUCCESS, only on RUNNING/FAILURE) — Interrupt reads the target
+	-- TackleSweep just set via ctx:setMeta. On a whiff, TackleSweep's FAILURE short-circuits the
+	-- whole Serial, so Interrupt never runs (nobody to interrupt).
 	world:set(components.Tackle, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
 			{ Type = "CooldownCondition", CooldownId = "CD_TACKLE" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_TACKLE" },
 			{ Type = "PushEvent", Queue = "Tackle" },
+			{ Type = "TackleSweep", side = "server" },
+			{ Type = "Interrupt", side = "server" },
 		},
 	})
 	world:set(components.Tackle, components.COOLDOWN_CONFIG, { Duration = 2.0 })
