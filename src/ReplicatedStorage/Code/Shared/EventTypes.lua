@@ -9,8 +9,11 @@ local EventQueues = {
 	-- Snap (QB receives ball): SnapInteraction -> SnapSystem
 	Snap = EventQueue.new(128),
 
-	-- Throw: ThrowInteraction -> ThrowSystem
+	-- Throw: ThrowInteraction (PushEvent) -> ThrowSystem (opens the THROWING window)
 	Throw = EventQueue.new(128),
+
+	-- LaunchBall: Throw chain's PushEvent (after the Wait) -> ThrowSystem (detaches + launches the ball)
+	LaunchBall = EventQueue.new(128),
 
 	-- Catch: CatchInteraction -> CatchSystem
 	Catch = EventQueue.new(128),

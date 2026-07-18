@@ -31,9 +31,9 @@ local function dashImpulseSystem()
 		local vel = world:get(entity, components.VELOCITY)
 		local dir = world:get(entity, components.INPUT_DIRECTION)
 		if not vel or not dir then continue end
-		local yaw = world:get(entity, components.YAW) or 0
+		local facingYaw = world:get(entity, components.FACING_YAW) or 0
 
-		world:set(entity, components.VELOCITY, DashCalc.dashVelocity(vel, dir, yaw))
+		world:set(entity, components.VELOCITY, DashCalc.dashVelocity(vel, dir, facingYaw))
 		world:set(entity, DASH_WINDOW_TIMER, DashCalc.DASH_WINDOW_TICKS)
 		world:add(entity, tags.DASHING)
 	end

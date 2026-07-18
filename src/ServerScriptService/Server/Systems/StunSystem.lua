@@ -28,6 +28,7 @@ local expiredQuery = world:query():with(tags.STUNNED):without(STUN_WINDOW_TIMER)
 local function stunSystem()
 	for entity in expiredQuery do
 		world:remove(entity, tags.STUNNED)
+		world:remove(entity, tags.WHIFFED)  -- animation marker rides with STUNNED; drop it too (no-op if absent)
 	end
 
 	for _, event in EventTypes.Stun:drain() do
@@ -41,6 +42,10 @@ local function stunSystem()
 		end
 		world:set(target, STUN_WINDOW_TIMER, event.duration)
 		world:add(target, tags.STUNNED)
+		-- Same freeze, different animation: a whiffing tackler plays the stumble clip, not the victim's fall.
+		if event.whiff then
+			world:add(target, tags.WHIFFED)
+		end
 	end
 end
 

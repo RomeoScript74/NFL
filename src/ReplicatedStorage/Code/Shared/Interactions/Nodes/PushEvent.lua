@@ -3,6 +3,8 @@
 -- affect ECS state: they never call world:set/add/remove directly.
 --
 -- Config: { Queue = "Throw" } — key into the EventTypes queue table.
+--   Optional { Payload = { windowTicks = 33 } } — static fields merged into the pushed entry, for
+--   per-interaction tuning the receiving system needs (kept in the chain def, not hardcoded in the system).
 -- The entry carries the acting entity plus any Charge/HoldTime meta set upstream
 -- (e.g. by HoldToCharge); those fields are nil for events that don't charge.
 
@@ -15,6 +17,7 @@ local FAILURE = NodeRegistry.FAILURE
 
 NodeRegistry.register("PushEvent", function(config)
 	local queueName = config.Queue
+	local payload = config.Payload
 
 	return {
 		Type = "PushEvent",
@@ -25,12 +28,18 @@ NodeRegistry.register("PushEvent", function(config)
 				return FAILURE
 			end
 
-			queue:push({
+			local entry = {
 				user = ctx.user,
 				target = ctx:getTargetEntity(),
 				charge = ctx:getMeta("Charge"),
 				holdTime = ctx:getMeta("HoldTime"),
-			})
+			}
+			if payload then
+				for k, v in payload do
+					entry[k] = v
+				end
+			end
+			queue:push(entry)
 
 			return SUCCESS
 		end,

@@ -13,8 +13,10 @@ local Components = {
 	-- Render / Instance refs
 	INSTANCE = world:component(),
 	ROOTPART = world:component(),
-	YAW = world:component(),
+	YAW = world:component(),  -- camera/aim yaw (from InputBridge) — where you're LOOKING; used by throw/carry
+	FACING_YAW = world:component(),  -- body-facing yaw: derived from movement (held when stopped) by FacingSystem — where you're GOING. Dash/tackle launch along this (their standstill fallback), NOT the camera. Deterministic (from velocity, both realms), so no replication needed
 	PITCH = world:component(),
+	ANIMATION_TRACKS = world:component(),  -- client-only: { tracks = {name -> AnimationTrack}, current = stateName }; loaded from the model's Animator, never replicated (Instances → pitfall #2), resolved locally like ROOTPART
 
 	-- Physics
 	POSITION = world:component(),
@@ -30,6 +32,7 @@ local Components = {
 	BOUNCINESS = world:component(),  -- per-entity restitution 0..1 (fraction of vertical speed kept per bounce)
 	DASH_WINDOW = world:component(),  -- target for pair(TIMER, DASH_WINDOW): the dash burst timer (ticks remaining), ticked by TimerSystem; DASHING lives while it exists
 	TACKLE_WINDOW = world:component(),  -- target for pair(TIMER, TACKLE_WINDOW): the tackler's forward-launch coast timer; TACKLING lives while it exists
+	THROW_WINDOW = world:component(),  -- target for pair(TIMER, THROW_WINDOW): the throw-motion anim window; THROWING lives while it exists (length = Throw chain's PushEvent Payload.windowTicks, robust to interrupt)
 	STUN_WINDOW = world:component(),  -- target for pair(TIMER, STUN_WINDOW): stun duration (ticks remaining); STUNNED lives while it exists
 
 	-- Player identity
@@ -73,6 +76,7 @@ local Components = {
 	LAST_RECONCILED_TICK = world:component(),
 	POSITION_HISTORY = world:component(),
 	VISUAL_OFFSET = world:component(),
+	VISUAL_VELOCITY = world:component(),  -- client-only: velocity low-passed for the visual layer (anim speed + body facing), so reconciliation's raw velocity snaps don't stutter them. The velocity analog of VISUAL_OFFSET; owned by VisualVelocitySystem, never replicated
 	PREV_POSITION = world:component(),
 	RENDER_FRAME = world:component(),
 	BUFFER_CONFIG = world:component(),
@@ -108,7 +112,7 @@ local Components = {
 	Dash   = world:entity(),
 
 	-- Carry state
-	CARRIED_BALL = world:component(),  -- on carrier: the ball entity it holds (server-only lookup)
+	CARRIES = world:component(),  -- relation on carrier → the ball it holds: pair(CARRIES, ball). Replicated (replecs.relation, auto-remapped like CARRIED_BY/OwnedBy) so the predicted client sees who's carrying and gates on it (e.g. can't tackle while carrying). Reverse of the ball's CARRIED_BY.
 
 	-- Relationships (pairs)
 	OwnedBy = world:component(),

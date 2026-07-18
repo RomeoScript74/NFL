@@ -1,6 +1,9 @@
--- TackleSweep.lua — Hytale-swing-style node: RUNNING for the duration of the tackler's dive,
--- sweeping for body contact each tick (the same cylinder overlap character-collision uses), and
--- branching to a different outcome depending on whether contact happened before the window ran out.
+-- TackleSweep.lua — Hytale-swing-style node: RUNNING for the duration of the tackler's dive.
+-- It sweeps for body contact (the same cylinder overlap character-collision uses) each tick
+-- across the whole TACKLE_WINDOW_TICKS window (the tackler coasts forward the entire dive, so any tick
+-- can connect). Contact is LAG-COMPENSATED: the runner is tested where the TACKLER SAW him (rewound by
+-- ~the interp buffer), not his true position, so what-you-see-is-what-you-hit. A hit ends the dive early
+-- with SUCCESS; running the window out with no contact FAILs with NO penalty (a clean miss is enough).
 -- Replaces a bespoke tag-driven ECS system with the framework's native multi-tick RUNNING pattern
 -- (mirrors HoldToCharge's self._elapsed-across-ticks shape).
 --
@@ -15,10 +18,9 @@
 -- ctx:getTargetEntity() for the Interrupt node right after this one in the SAME Serial (same tick,
 -- same ctx — cancelling the runner's own in-progress action is its own composable step, not something
 -- this node does itself; see Interrupt.lua), returns SUCCESS.
--- On timeout with no contact: pushes Stun{target,duration} on the tackler himself (the whiff
--- stumble), returns FAILURE. Either way this node — not a separate system — decides; it still only
--- REQUESTS the consequence via events (StunSystem/FumbleSystem own the actual state), per the layer
--- rule that interactions never mutate ECS directly.
+-- On timeout with no contact: just returns FAILURE — a clean miss has NO penalty (landing a tackle is
+-- already hard enough). Consequences are only ever REQUESTED via events (StunSystem/FumbleSystem own
+-- the actual state), per the layer rule that interactions never mutate ECS directly.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local components = require(ReplicatedStorage.Code.Shared.Components)
@@ -40,8 +42,12 @@ local RUNNING = NodeRegistry.RUNNING
 local STUN_TICKS = 60      -- ticks of STUNNED on the loser of the exchange (~1.0s @60Hz)
 local GRAB_REACH = 1.0     -- studs added to the tackler's collider radius: body + this reach must
                            -- overlap a runner to connect (same cylinder test as character collision)
-local LEAD_SECONDS = 0.12  -- favor-the-runner: contact tested against the runner led forward by his
-                           -- velocity this far, projecting a fast runner out of the dive's path
+-- Lag comp: test the runner where the TACKLER SAW him, not where he truly is (what-you-see-is-what-you-
+-- hit). Staleness = the interp buffer (how far behind the tackler renders remotes) + the tackler's
+-- round-trip latency, so we rewind him by his velocity over that whole window — adapted PER TACKLER via
+-- GetNetworkPing so a high-ping tackler rewinds more (fair) instead of one fixed value for everyone.
+local INTERP_BUFFER = 0.15  -- fixed part: MUST match RemoteVisualInterpolator.BUFFER_DELAY
+local PING_SCALE    = 1.0   -- fraction of the tackler's ping to add (ping≈RTT → 1.0). Lower if high-ping tackles over-reach, raise if they fall short
 
 -- Runners that can be caught: CHARACTER, not braced (the query IS the "braced can't be tackled" rule).
 local candidateQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS)
@@ -60,25 +66,38 @@ NodeRegistry.register("TackleSweep", function(_config)
 			local radius = world:get(tackler, components.COLLIDER_RADIUS)
 			if not pos or not radius then return FAILURE end
 
-			local reach = radius + GRAB_REACH
-			for runner, rpos, rvel, rradius in candidateQuery do
-				if runner == tackler then continue end
-				-- Favor the runner: test against where he's HEADING, not where he is now.
-				local led = rpos + Vector3.new(rvel.X, 0, rvel.Z) * LEAD_SECONDS
-				if PhysicsCalc.separation(pos, reach, led, rradius) ~= Vector3.zero then
-					EventTypes.Fumble:push({ carrier = runner })
-					EventTypes.Stun:push({ target = runner, duration = STUN_TICKS })
-					ctx:setMeta("TargetEntity", runner)
-					-- Stop the coast NOW — otherwise the tackler keeps sliding through the now-stunned
-					-- target for the rest of the dive window (TACKLING's ambient-collision exemption
-					-- would let them fully overlap it).
-					EventTypes.TackleLand:push({ entity = tackler })
-					return SUCCESS
+			-- Rewind window for THIS tackler: the interp buffer + his round-trip, so contact is tested
+			-- where the runner was on the tackler's screen. Adapts per-tackler via ping (NPCs → buffer only).
+			local playerEntity = world:target(tackler, components.OwnedBy)
+			local player = playerEntity and world:get(playerEntity, components.PLAYER)
+			local rewind = INTERP_BUFFER + (player and PING_SCALE * player:GetNetworkPing() or 0)
+
+			-- Contact sweeps the whole dive window (the tackler coasts forward the whole time, so any tick
+			-- can connect). The gate below is redundant with the node's lifetime but harmlessly bounds the sweep.
+			if self._ticks <= TackleCalc.TACKLE_WINDOW_TICKS then
+				local reach = radius + GRAB_REACH
+				for runner, rpos, rvel, rradius in candidateQuery do
+					if runner == tackler then continue end
+					-- Lag comp: test where the TACKLER SAW him (rewound by the interp delay), not his true position.
+					local seen = rpos - Vector3.new(rvel.X, 0, rvel.Z) * rewind
+					if PhysicsCalc.separation(pos, reach, seen, rradius) ~= Vector3.zero then
+						EventTypes.Fumble:push({ carrier = runner })
+						EventTypes.Stun:push({ target = runner, duration = STUN_TICKS })
+						ctx:setMeta("TargetEntity", runner)
+						-- Stop the coast NOW — otherwise the tackler keeps sliding through the now-stunned
+						-- target for the rest of the dive window (TACKLING's ambient-collision exemption
+						-- would let them fully overlap it).
+						EventTypes.TackleLand:push({ entity = tackler })
+						return SUCCESS
+					end
 				end
 			end
 
+			-- Whiff: keep RUNNING through the WHOLE dive so its animation plays out, THEN stumble-stun —
+			-- the contact window already closed above, so this is pure recovery/timing.
+			-- Whiff: no self-stun. Hitting a runner is already hard, so a clean miss is punishment enough
+			-- — just end the dive (the animation plays out), no penalty.
 			if self._ticks >= TackleCalc.TACKLE_WINDOW_TICKS then
-				EventTypes.Stun:push({ target = tackler, duration = STUN_TICKS })
 				return FAILURE
 			end
 

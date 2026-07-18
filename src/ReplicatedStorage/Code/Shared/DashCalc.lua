@@ -7,6 +7,9 @@
 -- The window is a pair(TIMER, DASH_WINDOW) counted down by the generic TimerSystem; the re-fire
 -- cooldown is a separate pair(COOLDOWN, CD_DASH). Both are independent.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PhysicsCalc = require(ReplicatedStorage.Code.Shared.PhysicsCalc)
+
 local DashCalc = {}
 
 -- Tuning (gameplay feel — safe to change).
@@ -14,15 +17,11 @@ DashCalc.DASH_SPEED = 70                -- studs/s horizontal burst
 DashCalc.DASH_COOLDOWN_DURATION = 1.0   -- seconds before dash can re-fire (ticked by CooldownSystem)
 DashCalc.DASH_WINDOW_TICKS = 12         -- physics ticks the burst is held (0.2s @ 60Hz); distance ≈ SPEED * TICKS/60 ≈ 14 studs
 
--- Horizontal burst in the input direction (or facing/yaw if no direction is held).
--- Vertical velocity is preserved so the dash never cancels jumps or gravity.
+-- Horizontal burst along the movement heading (where the body faces), input dir then camera yaw as
+-- fallbacks — see PhysicsCalc.launchHeading. Vertical velocity is preserved so the dash never cancels
+-- jumps or gravity.
 function DashCalc.dashVelocity(vel: Vector3, inputDir: Vector3, yaw: number): Vector3
-	local dashDir = inputDir
-	if dashDir.Magnitude == 0 then
-		dashDir = Vector3.new(-math.sin(yaw), 0, -math.cos(yaw))
-	else
-		dashDir = dashDir.Unit
-	end
+	local dashDir = PhysicsCalc.launchHeading(vel, inputDir, yaw)
 	return Vector3.new(dashDir.X * DashCalc.DASH_SPEED, vel.Y, dashDir.Z * DashCalc.DASH_SPEED)
 end
 

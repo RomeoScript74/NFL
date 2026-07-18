@@ -7,6 +7,7 @@ local BASE_GRAVITY = 196.2
 local STEP_UP_SPEED = 24
 local MAX_STEP_HEIGHT = 1.25
 local FLOOR_PROBE_RADIUS = 0.5
+local HEADING_MIN_SPEED = 1.0  -- horizontal studs/s below which velocity has no usable heading
 
 -- Vertical half-extent of a character cylinder (studs). Two characters only push apart when their
 -- vertical ranges overlap, so someone cleanly above another (jumping over) isn't shoved sideways.
@@ -57,6 +58,19 @@ function PhysicsCalc.calculateMovement(
 	local newZ = moveTowards(currentVel.Z, targetVelZ)
 
 	return Vector3.new(newX, currentVel.Y, newZ)
+end
+
+-- Launch heading (unit XZ) for movement abilities (dash, tackle): prefer the actual MOVEMENT direction
+-- — where the body visibly faces — so the launch follows your motion, not the camera. Fall back to the
+-- held input direction when nearly stopped, then to the caller's fallback yaw (dash/tackle pass FACING_YAW = last body facing, NOT the camera) when fully stopped with no input.
+function PhysicsCalc.launchHeading(vel: Vector3, inputDir: Vector3, yaw: number): Vector3
+	local h = Vector3.new(vel.X, 0, vel.Z)
+	if h.Magnitude >= HEADING_MIN_SPEED then
+		return h.Unit
+	elseif inputDir.Magnitude > 0 then
+		return inputDir.Unit
+	end
+	return Vector3.new(-math.sin(yaw), 0, -math.cos(yaw))
 end
 
 function PhysicsCalc.calculateGravity(

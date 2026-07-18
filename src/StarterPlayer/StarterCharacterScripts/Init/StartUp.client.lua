@@ -21,6 +21,7 @@ local _ref = require(ReplicatedStorage.Code.Shared.Init.Ref)
 local _remoteInterp = require(ReplicatedStorage.Code.Client.Init.RemoteInterpolationInit)()
 local _ballInterp = require(ReplicatedStorage.Code.Client.Init.BallInterpolationInit)()
 local _ballInit = require(ReplicatedStorage.Code.Client.Init.BallInit)()
+local _animLoader = require(ReplicatedStorage.Code.Client.Init.AnimationLoaderInit)()
 local _network = require(ReplicatedStorage.Code.Client.Init.Networking)
 
 -- apply_full has completed, all ECS entities exist. Resolve ROOTPART + promote local.

@@ -18,12 +18,12 @@ local function fumbleSystem()
 		local carrier = event.carrier
 		if not carrier or not world:contains(carrier) then continue end
 
-		local ball = world:get(carrier, components.CARRIED_BALL)
+		local ball = world:target(carrier, components.CARRIES)
 		if not ball or not world:contains(ball) then continue end
 
 		-- Detach both ways + re-enable physics (reverse of GrabSystem's attach).
 		world:remove(ball, pair(components.CARRIED_BY, carrier))
-		world:remove(carrier, components.CARRIED_BALL)
+		world:remove(carrier, pair(components.CARRIES, ball))
 		world:remove(ball, tags.PHYSICS_DISABLED)
 
 		-- Pop the ball loose just above the carrier.

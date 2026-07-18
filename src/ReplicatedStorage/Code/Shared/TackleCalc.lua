@@ -10,24 +10,23 @@
 -- here — it has a single server-side consumer (the TackleSweep node) with no cross-realm value to
 -- keep in sync, so it lives as locals in that node, not in this shared module.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PhysicsCalc = require(ReplicatedStorage.Code.Shared.PhysicsCalc)
+
 local TackleCalc = {}
 
 -- Tuning (gameplay feel — safe to change).
 local LAUNCH_SPEED = 40  -- studs/s forward burst applied to the tackler on fire
 
 TackleCalc.LAUNCH_SPEED        = LAUNCH_SPEED
-TackleCalc.TACKLE_WINDOW_TICKS = 12   -- ticks the launch coasts (~0.2s @60Hz); also the dive's contact window
+TackleCalc.TACKLE_WINDOW_TICKS = 24   -- ticks the launch coasts forward = the whole dive (~0.4s @60Hz); also the contact window. Distance ≈ LAUNCH_SPEED*this/60 (=16 studs). Tune BOTH to your dive animation: raise for a longer/further dive that's easier to land, lower for a quick lunge.
 
--- Horizontal facing unit vector from a yaw angle (matches DashCalc's yaw form / CFrame LookVector).
-function TackleCalc.forwardFromYaw(yaw: number): Vector3
-	return Vector3.new(-math.sin(yaw), 0, -math.cos(yaw))
-end
-
--- Forward launch burst along facing; vertical velocity is preserved so the lunge never cancels
--- gravity or an in-progress jump.
-function TackleCalc.launchVelocity(vel: Vector3, yaw: number): Vector3
-	local f = TackleCalc.forwardFromYaw(yaw)
-	return Vector3.new(f.X * LAUNCH_SPEED, vel.Y, f.Z * LAUNCH_SPEED)
+-- Launch burst along the movement heading (where the body faces), input dir then camera yaw as
+-- fallbacks — see PhysicsCalc.launchHeading (shared with DashCalc). Vertical velocity is preserved so
+-- the lunge never cancels gravity or an in-progress jump.
+function TackleCalc.launchVelocity(vel: Vector3, inputDir: Vector3, yaw: number): Vector3
+	local dir = PhysicsCalc.launchHeading(vel, inputDir, yaw)
+	return Vector3.new(dir.X * LAUNCH_SPEED, vel.Y, dir.Z * LAUNCH_SPEED)
 end
 
 return TackleCalc

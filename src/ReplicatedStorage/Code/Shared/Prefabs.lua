@@ -17,6 +17,7 @@ local Prefabs = {}
 function Prefabs.Character(world, entity, rootPart, humanoid)
 	-- Render
 	world:set(entity, components.YAW, 0)
+	world:set(entity, components.FACING_YAW, 0)
 	world:set(entity, components.PITCH, 0)
 	world:set(entity, components.INSTANCE, rootPart.Parent)
 	world:set(entity, components.ROOTPART, rootPart)
@@ -98,6 +99,7 @@ function Prefabs.PredictedCharacter(world, entity, rootPart)
 	world:set(entity, components.POSITION, rootPart.Position)
 	world:set(entity, components.VELOCITY, Vector3.zero)
 	world:set(entity, components.YAW, 0)
+	world:set(entity, components.FACING_YAW, 0)
 	world:set(entity, components.PITCH, 0)
 
 	-- Input (client writes these; server never sees them)
@@ -134,9 +136,14 @@ end
 -- The PushEvent node pushes to EventTypes, drained by impulse systems.
 
 function Prefabs.Interactions(world)
-	-- Throw (hold to charge, release to throw the carried ball along your look direction).
-	-- SelectCarried both validates "am I carrying a ball" and provides the ball as the
-	-- target; if you aren't carrying, it fails the chain (no throw, no cooldown consumed).
+	-- Throw (hold to charge, release to throw the carried ball along your BODY FACING). SelectCarried both
+	-- validates "am I carrying a ball" and provides the ball as the target; if you aren't carrying, it
+	-- fails the chain (no throw, no cooldown consumed). Composed from generic primitives — no bespoke
+	-- throw node: PushEvent(Throw) opens the THROWING window (Payload.windowTicks = anim length; ThrowSystem
+	-- owns the tag via a TIMER so it survives an interrupt), Wait is the framework-timed release delay, then
+	-- PushEvent(LaunchBall) fires the ball (reading the target+charge that persist across the wait). Tune
+	-- Wait.RunTime to the clip's release frame (~0.3s) and windowTicks to the full clip length (~0.55s =
+	-- 33 ticks). Whole chain is server-only (Throw absent from PredictedCharacter), so no child needs `side`.
 	world:set(components.Throw, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
@@ -144,7 +151,9 @@ function Prefabs.Interactions(world)
 			{ Type = "HoldToCharge", MaxTime = 1.5 },
 			{ Type = "SelectCarried" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_PASS" },
-			{ Type = "PushEvent", Queue = "Throw" },
+			{ Type = "PushEvent", Queue = "Throw", Payload = { windowTicks = 33 } },
+			{ Type = "Wait", RunTime = 0.3 },
+			{ Type = "PushEvent", Queue = "LaunchBall" },
 		},
 	})
 	world:set(components.Throw, components.COOLDOWN_CONFIG, { Duration = 0.5 })
@@ -164,6 +173,9 @@ function Prefabs.Interactions(world)
 	world:set(components.Tackle, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
+			-- Can't tackle while carrying the ball (the runner isn't a tackler). CARRIES is replicated,
+			-- so this gate matches on the predicted client and the server.
+			{ Type = "Condition", Relation = "CARRIES", Invert = true },
 			{ Type = "CooldownCondition", CooldownId = "CD_TACKLE" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_TACKLE" },
 			{ Type = "PushEvent", Queue = "Tackle" },
@@ -208,7 +220,7 @@ function Prefabs.Interactions(world)
 	world:set(components.Jump, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
-			{ Type = "Condition", Tag = tags.IS_GROUNDED },
+			{ Type = "Condition", Tag = "IS_GROUNDED" },
 			{ Type = "CooldownCondition", CooldownId = "CD_JUMP" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_JUMP" },
 			{ Type = "PushEvent", Queue = "GroundJump" },

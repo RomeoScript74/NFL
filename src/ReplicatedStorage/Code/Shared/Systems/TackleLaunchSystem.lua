@@ -46,10 +46,11 @@ local function tackleLaunchSystem()
 		local entity = entry.user
 		if not world:contains(entity) then continue end
 		local vel = world:get(entity, components.VELOCITY)
-		local yaw = world:get(entity, components.YAW)
-		if not vel or not yaw then continue end
+		local dir = world:get(entity, components.INPUT_DIRECTION)
+		local facingYaw = world:get(entity, components.FACING_YAW)
+		if not vel or not dir or not facingYaw then continue end
 
-		world:set(entity, components.VELOCITY, TackleCalc.launchVelocity(vel, yaw))
+		world:set(entity, components.VELOCITY, TackleCalc.launchVelocity(vel, dir, facingYaw))
 		world:set(entity, TACKLE_WINDOW_TIMER, TackleCalc.TACKLE_WINDOW_TICKS)
 		world:add(entity, tags.TACKLING)
 	end

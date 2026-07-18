@@ -292,6 +292,20 @@ Reference: `C:\Users\ptmer\Downloads\Roblox\Fps\src\ReplicatedStorage\Code\Clien
 
 ---
 
+## Animation Layer
+
+Pure Visual layer — **client-only**, reads ECS state, never writes it. The server never plays tracks.
+
+**Setup reality**: characters are Roblox rigs but `CharacterSetup.lua` sets `Anchored=true`, `PlatformStand=true`, `EvaluateStateMachine=false` — the Humanoid is a dead pose-holder and CFrame is driven directly from ECS. Roblox's default `Animate` script is inert. You own animation 100% via the Humanoid's `Animator` (still plays tracks with the state machine off).
+
+**Two categories, two mechanisms:**
+1. **Locomotion (idle/walk/run/jump/fall)** — *continuous* state → **polling** visual system (`LocomotionAnimationSystem`, PreRender). State chosen from **velocity alone** (no `IS_GROUNDED` dependency — remotes aren't simulated and never have that tag): vertical speed → jump/fall, horizontal speed → idle/walk/run with playback speed scaled to velocity (no foot skate).
+2. **Interaction anims (tackle/brace/dash)** — *discrete* → **observer plugin** on the gameplay state tag the interaction already sets (`TACKLING`, `BRACED`, …). Tag added → play, removed → blend back. This is the legitimate observer-as-plugin use (not toggling to trigger — the tag exists for gameplay). Driving off the **replicated tag** means the same code path fires on the local predictor (instant) AND every remote when it replicates — a node calling `:Play()` would only animate one machine.
+
+**Velocity source is realm-split**: local predicted player uses live `VELOCITY`; remotes use `SERVER_VELOCITY` (plain `VELOCITY` isn't set on interpolated remotes). Two drive queries, one shared `driveLocomotion()`.
+
+**Storage**: `ANIMATION_TRACKS` — client-only component `{ tracks = {name -> AnimationTrack}, current = stateName }`, loaded from the model's Animator when `ROOTPART` resolves, never replicated (Instances → pitfall #2). `LocomotionAnimationSystem` owns it (load query `:without(ANIMATION_TRACKS)` + drive queries `:with`). Asset ids + tuning live in `Client/AnimationConfig.lua` (NOT `Client/Systems/` — that folder auto-registers every module as a Planck system; NOT a `*Calc` — animation is single-realm, nothing to keep bit-identical).
+
 ## EventQueue
 
 Reference: `C:\Users\ptmer\Downloads\Roblox\Fps\src\ReplicatedStorage\Code\Shared\Utilities\EventQueue.lua`

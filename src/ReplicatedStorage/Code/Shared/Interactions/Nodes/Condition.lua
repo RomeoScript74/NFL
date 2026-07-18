@@ -1,5 +1,6 @@
--- Condition.lua — Gate node. Checks tag or component presence at execute time.
--- Config: { Tag = "IS_GROUNDED" } or { HasComponent = "HEALTH" }
+-- Condition.lua — Gate node. Checks tag / component / relation presence at execute time.
+-- Config: { Tag = "IS_GROUNDED" } or { HasComponent = "HEALTH" } or { Relation = "CARRIES" }
+--   Relation checks pair(<Relation>, *) presence (does the user have any target for that relation).
 -- Optional: Invert = true to negate.
 -- Returns SUCCESS if condition met, FAILURE otherwise.
 
@@ -21,6 +22,8 @@ NodeRegistry.register("Condition", function(config)
 				result = world:has(ctx.user, tags[config.Tag])
 			elseif config.HasComponent then
 				result = world:get(ctx.user, components[config.HasComponent]) ~= nil
+			elseif config.Relation then
+				result = world:target(ctx.user, components[config.Relation]) ~= nil
 			else
 				result = true
 			end

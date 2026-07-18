@@ -3,7 +3,8 @@
 -- if the ball is still loose and the carrier's hands are empty, it links ball <-> carrier
 -- and disables the ball's physics:
 --   * pair(CARRIED_BY, carrier) on the ball  — replicated, drives client attachment.
---   * CARRIED_BALL on the carrier             — server-side lookup for SelectCarried/throw.
+--   * pair(CARRIES, ball) on the carrier      — replicated; SelectCarried/throw look up the ball, and
+--                                               the predicted tackle gate reads its presence.
 --   * PHYSICS_DISABLED on the ball            — physics systems skip it; CarrySystem moves it.
 -- Server-authoritative. Impulse phase (drains events pushed in Combat).
 
@@ -26,11 +27,11 @@ local function grabSystem()
 
 		-- The queue is a boundary — re-validate: ball still loose, hands still empty.
 		if world:target(ball, components.CARRIED_BY) then continue end
-		if world:get(carrier, components.CARRIED_BALL) then continue end
+		if world:target(carrier, components.CARRIES) then continue end
 
 		world:add(ball, pair(components.CARRIED_BY, carrier))
 		world:add(ball, tags.PHYSICS_DISABLED)
-		world:set(carrier, components.CARRIED_BALL, ball)
+		world:add(carrier, pair(components.CARRIES, ball))
 	end
 end
 

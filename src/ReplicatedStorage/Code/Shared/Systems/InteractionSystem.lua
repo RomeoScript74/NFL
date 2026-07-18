@@ -224,6 +224,12 @@ local function buildContext(character, chain)
 		end,
 	}
 
+	-- _meta lives on the CHAIN, not the ctx, so it survives across ticks. buildContext runs fresh every
+	-- tick, but a chain persists while RUNNING — so a target/charge set by one node (SelectCarried,
+	-- HoldToCharge) is still readable by a later node AFTER a wait/RUNNING gap. A brand-new chain has no
+	-- _meta yet (fresh table); reset() clears it. (fork() still gets its own independent _meta.)
+	chain._meta = chain._meta or {}
+
 	local ctx = setmetatable({
 		user = character,
 		owner = character,
@@ -231,7 +237,7 @@ local function buildContext(character, chain)
 		manager = chain.manager,
 		chain = chain,
 		interactionType = chain.interactionType,
-		_meta = {},
+		_meta = chain._meta,
 		_commandBuffer = commandBuffer,
 	}, ContextMeta)
 

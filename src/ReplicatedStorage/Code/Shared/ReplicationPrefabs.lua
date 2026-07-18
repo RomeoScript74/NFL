@@ -53,6 +53,12 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	-- STUNNED: server-authoritative tackle outcome. Replicated so remotes render the stun and the
 	-- owner's prediction stops driving movement while frozen (otherwise a 1s stun reconciles for 1s).
 	world:add(entity, pair(replecs.reliable, tags.STUNNED))
+	-- THROWING: server-only action (the owner doesn't predict throw), so unlike TACKLING it replicates
+	-- to EVERYONE including the owner — that's how the thrower sees their own throw anim. No owner filter.
+	world:add(entity, pair(replecs.reliable, tags.THROWING))
+	-- WHIFFED: animation marker on a whiffed tackler (rides with STUNNED). Replicated so remotes play
+	-- the stumble clip instead of the got-tackled fall.
+	world:add(entity, pair(replecs.reliable, tags.WHIFFED))
 
 	-- Snapshot model: POSITION/VELOCITY are NEVER replicated — they are always
 	-- local (predicted on owner, computed from SERVER_* on remotes). Only the
@@ -61,9 +67,16 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	local ownerFilter = { [owner] = false }
 	world:set(entity, pair(replecs.unreliable, components.YAW),   ownerFilter)
 	world:set(entity, pair(replecs.unreliable, components.PITCH), ownerFilter)
+	-- TACKLING is deliberately NOT replicated: the tackler predicts it, and replicating it (even
+	-- owner-filtered) makes replecs manage/strip the predicted tag on the owner. Remotes get the dive
+	-- from the already-replicated SERVER_TACKLE_WINDOW (>0 = mid-tackle) instead — see
+	-- InteractionAnimationSystem.
 
 	-- Relationships
 	world:add(entity, pair(replecs.relation, components.OwnedBy))
+	-- CARRIES (carrier → held ball): server-authoritative, replicated so the predicted client sees who's
+	-- carrying and gates on it (can't tackle while carrying). Not predicted → replecs won't fight it.
+	world:add(entity, pair(replecs.relation, components.CARRIES))
 end
 
 -- Item entity: ball, interactable object — no owner, position replicated to all.
