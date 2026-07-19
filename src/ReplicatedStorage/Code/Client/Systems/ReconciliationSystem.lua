@@ -12,6 +12,7 @@ local world = require(ReplicatedStorage.Code.Shared.World)
 local scheduler = require(ReplicatedStorage.Code.Shared.Scheduler)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 local phase = require(ReplicatedStorage.Packages["planck-runservice"]).Phases
+local ChainSnapshot = require(ReplicatedStorage.Code.Shared.Interactions.ChainSnapshot)
 
 -- Predicted dash cooldown pair — restored from SERVER_DASH_CD before the replay loop.
 local DASH_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_DASH)
@@ -144,6 +145,19 @@ local function reconciliationSystem()
 			world:set(entity, HURDLE_CD_PAIR, serverHurdleCd)
 		else
 			world:remove(entity, HURDLE_CD_PAIR)
+		end
+
+		-- Roll the INTERACTION execution back to the server tick: restore the active chains + input
+		-- intent to their end-of-serverTick snapshot, so replayed ticks re-advance the chains from
+		-- exactly where they were (no drift, no double-fire — a chain already active isn't re-started).
+		-- Manager fetched here, not in the hot query, since it's only needed on the rare desync path.
+		-- (Phase 1 of rollback-native chains; the snapshot was recorded by HistoryRecorderSystem.)
+		local interactionSnap = history[historyIndex].Interaction
+		if interactionSnap then
+			local manager = world:get(entity, components.INTERACTION_MANAGER)
+			if manager then
+				world:set(entity, components.INPUT_STATE, ChainSnapshot.restore(manager, interactionSnap))
+			end
 		end
 
 		-- Suppress observers/VFX during replay

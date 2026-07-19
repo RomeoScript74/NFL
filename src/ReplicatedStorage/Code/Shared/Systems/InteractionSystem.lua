@@ -31,6 +31,12 @@ local IS_CLIENT = RunService:IsClient()
 local pair = jecs.pair
 local DT = 1 / 60
 
+-- The node tree for each interaction type is built ONCE and shared across every chain of that type
+-- (per realm). Safe because nodes are now stateless — a running chain's mutable state lives in
+-- chain.scratch (keyed by node), never on the node objects. Was: build/deepClone a fresh tree per
+-- chain start. [interactionDef] -> shared root node.
+local treeCache = {}
+
 -- ═══════════════ Query ═══════════════
 
 -- STUNNED characters can't act: a stunned player's chains freeze and no new intent starts. The
@@ -185,6 +191,39 @@ end
 -- Called by Replace node. The runner picks this up after execute returns.
 function ContextMeta:replaceChain(newRoot)
 	self._chainReplace = newRoot
+end
+
+-- Per-node scratch: a node's MUTABLE per-chain state (Serial's childIndex, HoldToCharge's elapsed,
+-- TackleSweep's ticks, …) lives here, NOT on the node object — because the node tree is SHARED and
+-- immutable across all chains of a type. `chain.scratch[node]` is this chain's private data for that
+-- node; a fresh chain starts with empty scratch, so nodes lazily init on first execute. Keeping ALL
+-- runtime state as plain per-chain DATA (not mutated onto shared nodes) is what makes a chain
+-- snapshot/restore-able for rollback (see the rollback-native plan).
+function ContextMeta:nodeState(node)
+	local scratch = self.chain.scratch
+	local s = scratch[node]
+	if not s then
+		s = {}
+		scratch[node] = s
+	end
+	return s
+end
+
+-- Recursively clears a node's (and its whole subtree's) scratch, so a re-run starts fresh. Replaces the
+-- per-node reset() methods — Repeat calls this on its child between iterations; nothing else needs it.
+function ContextMeta:resetNode(node)
+	self.chain.scratch[node] = nil
+	if node.children then
+		for _, child in node.children do
+			self:resetNode(child)
+		end
+	end
+	if node.child then
+		self:resetNode(node.child)
+	end
+	if node.guard then
+		self:resetNode(node.guard)
+	end
 end
 
 -- Creates an independent clone with a fresh _meta store.
@@ -467,18 +506,20 @@ local function interactionDispatchSystem()
 			local chainDef = world:get(interactionDef, components.CHAIN_DEF)
 			if not chainDef then continue end
 
-			-- Build root node from config or deep-clone pre-built node
-			local root
-			if chainDef.Type and not chainDef.execute then
-				root = NodeRegistry.build(chainDef)
-			else
-				root = NodeRegistry.deepClone(chainDef)
+			-- Shared tree: build the node tree ONCE per interaction type and reuse it for every chain.
+			-- No per-chain deepClone — the chain's mutable state lives in `scratch`, not on the nodes.
+			local root = treeCache[interactionDef]
+			if not root then
+				-- Config table → build; a pre-built node → share it directly (nodes are stateless now).
+				root = (chainDef.Type and not chainDef.execute) and NodeRegistry.build(chainDef) or chainDef
+				treeCache[interactionDef] = root
 			end
 
 			local chain = {
 				interactionDef = interactionDef,
 				root = root,
 				currentNode = root,
+				scratch = {},  -- [node] -> that node's per-chain mutable state (see ctx:nodeState)
 				interactionType = interactionType,
 				manager = manager,
 				isNPC = isNPC,

@@ -28,24 +28,27 @@ NodeRegistry.register("Serial", function(config)
 	return {
 		Type = "Serial",
 		children = children,
-		childIndex = 1,
-		_holdRemaining = nil,
 
+		-- STATELESS: per-chain progress (childIndex, holdRemaining) lives in ctx:nodeState(self), NOT on
+		-- the shared node — so this same node object drives every character's chain from its own scratch.
 		execute = function(self, ctx)
-			while self.childIndex <= #self.children do
+			local s = ctx:nodeState(self)
+			s.childIndex = s.childIndex or 1
+
+			while s.childIndex <= #self.children do
 				-- Framework-timed hold: the current child SUCCEEDED with a RunTime → wait it out here
 				-- (without re-executing the child), then advance. This is how a Wait node waits.
-				if self._holdRemaining then
-					self._holdRemaining -= DT
-					if self._holdRemaining > 0 then
+				if s.holdRemaining then
+					s.holdRemaining -= DT
+					if s.holdRemaining > 0 then
 						return RUNNING
 					end
-					self._holdRemaining = nil
-					self.childIndex = self.childIndex + 1
+					s.holdRemaining = nil
+					s.childIndex = s.childIndex + 1
 					continue
 				end
 
-				local child = self.children[self.childIndex]
+				local child = self.children[s.childIndex]
 				-- A realm-gated child (side="server"/"client") that doesn't belong here counts as an
 				-- automatic pass-through — same as tickChain's top-level skip behavior.
 				local status = NodeRegistry.isSkipped(child)
@@ -60,23 +63,13 @@ NodeRegistry.register("Serial", function(config)
 				-- SUCCESS: if the child declares a RunTime, start holding it (advance after the duration);
 				-- otherwise move on immediately.
 				if child.RunTime and child.RunTime > 0 then
-					self._holdRemaining = child.RunTime
+					s.holdRemaining = child.RunTime
 				else
-					self.childIndex = self.childIndex + 1
+					s.childIndex = s.childIndex + 1
 				end
 			end
 
 			return SUCCESS
-		end,
-
-		reset = function(self)
-			self.childIndex = 1
-			self._holdRemaining = nil
-			for _, child in self.children do
-				if child.reset then
-					child:reset()
-				end
-			end
 		end,
 	}
 end)

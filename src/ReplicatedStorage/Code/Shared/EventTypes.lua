@@ -48,6 +48,10 @@ local EventQueues = {
 	-- Hurdle: Hurdle interaction (predicted vertical launch) -> HurdleLaunchSystem (shared, predicted)
 	Hurdle = EventQueue.new(128),
 
+	-- HurdleLand: the Hurdle chain's WaitUntilGrounded->PushEvent beat, on landing -> HurdleLaunchSystem
+	-- ends HURDLING (the interaction owns its whole launch->airborne->land timeline)
+	HurdleLand = EventQueue.new(128),
+
 	-- StartCooldown: TriggerCooldown node -> CooldownStartSystem (applies pair(COOLDOWN, *) server-side)
 	StartCooldown = EventQueue.new(128),
 }

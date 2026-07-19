@@ -20,13 +20,17 @@ NodeRegistry.register("Repeat", function(config)
 		delay = config.Delay or 0,
 		guard = guard,
 		child = child,
-		iteration = 0,
-		delayRemaining = 0,
 
+		-- STATELESS: iteration + delayRemaining live in ctx:nodeState(self). Between iterations we clear the
+		-- child's whole subtree scratch via ctx:resetNode (replaces the old recursive child:reset()).
 		execute = function(self, ctx)
-			if self.delayRemaining > 0 then
-				self.delayRemaining = self.delayRemaining - DT
-				if self.delayRemaining > 0 then
+			local s = ctx:nodeState(self)
+			s.iteration = s.iteration or 0
+			s.delayRemaining = s.delayRemaining or 0
+
+			if s.delayRemaining > 0 then
+				s.delayRemaining = s.delayRemaining - DT
+				if s.delayRemaining > 0 then
 					return RUNNING
 				end
 			end
@@ -44,27 +48,19 @@ NodeRegistry.register("Repeat", function(config)
 				return RUNNING
 			end
 
-			self.iteration = self.iteration + 1
+			s.iteration = s.iteration + 1
 
-			if self.iteration >= self.times then
+			if s.iteration >= self.times then
 				return SUCCESS
 			end
 
-			self.child:reset()
+			ctx:resetNode(self.child)
 			if self.delay > 0 then
-				self.delayRemaining = self.delay
+				s.delayRemaining = self.delay
 				return RUNNING
 			end
 
 			return RUNNING
-		end,
-
-		reset = function(self)
-			self.iteration = 0
-			self.delayRemaining = 0
-			if self.child.reset then
-			self.child:reset()
-		end
 		end,
 	}
 end)

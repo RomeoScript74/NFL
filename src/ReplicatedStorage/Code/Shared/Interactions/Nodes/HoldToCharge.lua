@@ -21,10 +21,11 @@ NodeRegistry.register("HoldToCharge", function(config)
 
 	return {
 		Type = "HoldToCharge",
-		_elapsed = 0,
 
+		-- STATELESS: elapsed hold time lives in ctx:nodeState(self), not on the shared node.
 		execute = function(self, ctx)
-			self._elapsed = math.min(self._elapsed + DT, maxTime)
+			local s = ctx:nodeState(self)
+			s.elapsed = math.min((s.elapsed or 0) + DT, maxTime)
 
 			-- inputReleased is set by InteractionDispatchSystem when the action's
 			-- input flag drops. Until then, keep charging.
@@ -32,17 +33,13 @@ NodeRegistry.register("HoldToCharge", function(config)
 				return RUNNING
 			end
 
-			if self._elapsed < minTime then
+			if s.elapsed < minTime then
 				return FAILURE
 			end
 
-			ctx:setMeta("Charge", self._elapsed / maxTime)
-			ctx:setMeta("HoldTime", self._elapsed)
+			ctx:setMeta("Charge", s.elapsed / maxTime)
+			ctx:setMeta("HoldTime", s.elapsed)
 			return SUCCESS
-		end,
-
-		reset = function(self)
-			self._elapsed = 0
 		end,
 	}
 end)

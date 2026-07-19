@@ -38,14 +38,6 @@ NodeRegistry.register("Parallel", function(config)
 			end
 			return if anyRunning then RUNNING else SUCCESS
 		end,
-
-		reset = function(self)
-			for _, child in self.children do
-				if child.reset then
-				child:reset()
-			end
-			end
-		end,
 	}
 end)
 

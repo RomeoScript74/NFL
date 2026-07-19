@@ -63,10 +63,11 @@ local hurdleQuery = world:query(components.POSITION, components.VELOCITY, compon
 NodeRegistry.register("TackleSweep", function(_config)
 	return {
 		Type = "TackleSweep",
-		_ticks = 0,
 
+		-- STATELESS: the dive's tick counter lives in ctx:nodeState(self), not on the shared node.
 		execute = function(self, ctx)
-			self._ticks = self._ticks + 1
+			local s = ctx:nodeState(self)
+			s.ticks = (s.ticks or 0) + 1
 
 			local tackler = ctx.user
 			local pos = world:get(tackler, components.POSITION)
@@ -81,7 +82,7 @@ NodeRegistry.register("TackleSweep", function(_config)
 
 			-- Contact sweeps the whole dive window (the tackler coasts forward the whole time, so any tick
 			-- can connect). The gate below is redundant with the node's lifetime but harmlessly bounds the sweep.
-			if self._ticks <= TackleCalc.TACKLE_WINDOW_TICKS then
+			if s.ticks <= TackleCalc.TACKLE_WINDOW_TICKS then
 				local reach = radius + GRAB_REACH
 				for runner, rpos, rvel, rradius in candidateQuery do
 					if runner == tackler then continue end
@@ -127,15 +128,11 @@ NodeRegistry.register("TackleSweep", function(_config)
 			-- the contact window already closed above, so this is pure recovery/timing.
 			-- Whiff: no self-stun. Hitting a runner is already hard, so a clean miss is punishment enough
 			-- — just end the dive (the animation plays out), no penalty.
-			if self._ticks >= TackleCalc.TACKLE_WINDOW_TICKS then
+			if s.ticks >= TackleCalc.TACKLE_WINDOW_TICKS then
 				return FAILURE
 			end
 
 			return RUNNING
-		end,
-
-		reset = function(self)
-			self._ticks = 0
 		end,
 	}
 end)

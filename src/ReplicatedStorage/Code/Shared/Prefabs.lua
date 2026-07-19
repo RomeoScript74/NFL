@@ -273,22 +273,25 @@ function Prefabs.Interactions(world)
 	world:set(components.Dash, components.COOLDOWN_CONFIG, { Duration = DashCalc.DASH_COOLDOWN_DURATION })
 	world:set(components.Dash, components.INTERACTION_RULES, {})
 
-	-- Hurdle (predicted vertical launch to vault a diving tackler). Same shape as Dash but launches UP:
-	-- Condition IS_GROUNDED (hurdle off the floor); Condition HURDLING-invert blocks re-fire mid-vault;
-	-- CooldownCondition gates on the server-authoritative pair(COOLDOWN, CD_HURDLE); PushEvent hands off
-	-- to the shared HurdleLaunchSystem, which owns the launch + HURDLING window in ECS. Runs on client
-	-- (prediction) and server (authority). The vault is a READ, not a reflex: mistime it and the tackle's
-	-- contact lands on a tick when HURDLING isn't active → normal takedown; time it right and TackleSweep
-	-- resolves a hurdle-over. No `side` child here — the whole chain is the own-body launch; the
-	-- cross-entity outcome lives in TackleSweep (server-only), not in this chain.
+	-- Hurdle (predicted vertical launch to vault a diving tackler). The chain owns the WHOLE timeline:
+	-- gate (grounded + cooldown) → TriggerCooldown → PushEvent(Hurdle) launch → WaitUntilGrounded (RUNNING
+	-- for the whole airborne arc) → PushEvent(HurdleLand) on touchdown. HurdleLaunchSystem just applies
+	-- those beats (add HURDLING on launch, remove on land), so HURDLING spans exactly the airborne arc —
+	-- the immune window, the collision exemption, and the Land recovery-clip trigger all follow from it.
+	-- No HURDLING-invert re-fire guard needed: the chain stays ACTIVE (in manager.active) until it lands,
+	-- and the dispatcher won't start a second Hurdle while one is active. WaitUntilGrounded is a LONG
+	-- predicted RUNNING node — safe only because chain state now rolls back (rollback-native chains); this
+	-- is the first real ability to exercise that. Runs both realms; no `side` child (own-body only, the
+	-- cross-entity outcome is TackleSweep's, server-only).
 	world:set(components.Hurdle, components.CHAIN_DEF, {
 		Type = "Serial",
 		Children = {
 			{ Type = "Condition", Tag = "IS_GROUNDED" },
-			{ Type = "Condition", Tag = "HURDLING", Invert = true },
 			{ Type = "CooldownCondition", CooldownId = "CD_HURDLE" },
 			{ Type = "TriggerCooldown", CooldownId = "CD_HURDLE" },
 			{ Type = "PushEvent", Queue = "Hurdle" },
+			{ Type = "WaitUntilGrounded" },
+			{ Type = "PushEvent", Queue = "HurdleLand" },
 		},
 	})
 	world:set(components.Hurdle, components.COOLDOWN_CONFIG, { Duration = HurdleCalc.HURDLE_COOLDOWN_DURATION })
