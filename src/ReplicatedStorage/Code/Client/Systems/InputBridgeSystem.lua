@@ -60,9 +60,6 @@ local function inputBridgeSystem()
 		if move.X < 0 then
 			flags = bit32.bor(flags, InputType.LEFT)
 		end
-		if Input.pressed("jump") then
-			flags = bit32.bor(flags, InputType.JUMP)
-		end
 		if Input.pressed("pass") then
 			flags = bit32.bor(flags, InputType.PASS)
 		end
@@ -86,6 +83,10 @@ local function inputBridgeSystem()
 		end
 		if Input.pressed("brace") then
 			flags = bit32.bor(flags, InputType.BRACE)
+		end
+
+		if Input.pressed("hurdle") then
+			flags = bit32.bor(flags, InputType.HURDLE)
 		end
 
 		-- Write to client ECS (for local prediction use)

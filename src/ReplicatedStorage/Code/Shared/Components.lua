@@ -32,6 +32,7 @@ local Components = {
 	BOUNCINESS = world:component(),  -- per-entity restitution 0..1 (fraction of vertical speed kept per bounce)
 	DASH_WINDOW = world:component(),  -- target for pair(TIMER, DASH_WINDOW): the dash burst timer (ticks remaining), ticked by TimerSystem; DASHING lives while it exists
 	TACKLE_WINDOW = world:component(),  -- target for pair(TIMER, TACKLE_WINDOW): the tackler's forward-launch coast timer; TACKLING lives while it exists
+	HURDLE_WINDOW = world:component(),  -- target for pair(TIMER, HURDLE_WINDOW): the runner's airborne hurdle window; HURDLING lives while it exists (the tackle-immune window TackleSweep branches on — slice 1: whole window = immune, no startup split yet)
 	THROW_WINDOW = world:component(),  -- target for pair(TIMER, THROW_WINDOW): the throw-motion anim window; THROWING lives while it exists (length = Throw chain's PushEvent Payload.windowTicks, robust to interrupt)
 	STUN_WINDOW = world:component(),  -- target for pair(TIMER, STUN_WINDOW): stun duration (ticks remaining); STUNNED lives while it exists
 
@@ -64,6 +65,8 @@ local Components = {
 	SERVER_DASH_WINDOW = world:component(),  -- authoritative DASH_WINDOW remaining at SERVER_TICK; reconciliation restores DASH_WINDOW to this before replay
 	SERVER_TACKLE_CD = world:component(),  -- authoritative CD_TACKLE remaining at SERVER_TICK; reconciliation restores the PREDICTED pair(COOLDOWN, CD_TACKLE) before replay
 	SERVER_TACKLE_WINDOW = world:component(),  -- authoritative TACKLE_WINDOW remaining at SERVER_TICK; reconciliation restores the predicted launch coast (TACKLING + TACKLE_WINDOW) before replay
+	SERVER_HURDLE_CD = world:component(),  -- authoritative CD_HURDLE remaining at SERVER_TICK; reconciliation restores the PREDICTED pair(COOLDOWN, CD_HURDLE) before replay (mirror of dash/tackle)
+	SERVER_HURDLE_WINDOW = world:component(),  -- authoritative HURDLE_WINDOW remaining at SERVER_TICK; reconciliation restores the predicted hurdle (HURDLING + HURDLE_WINDOW), and remotes read it (>0 = mid-hurdle) for the vault anim
 	CLOCK_SYNC = world:component(),
 
 	-- Networking (server → client unreliable)
@@ -96,20 +99,20 @@ local Components = {
 	CD_TACKLE = world:component(),
 	CD_JUKE   = world:component(),
 	CD_DIVE   = world:component(),
-	CD_JUMP   = world:component(),
 	CD_GRAB   = world:component(),
 	CD_DASH   = world:component(),
+	CD_HURDLE = world:component(),
 
 	-- NFL Definition Entities (pair targets for HAS_INTERACTION)
 	Throw  = world:entity(),
 	Tackle = world:entity(),
 	Juke   = world:entity(),
 	Dive   = world:entity(),
-	Jump   = world:entity(),
 	Snap   = world:entity(),
 	Catch  = world:entity(),
 	Grab   = world:entity(),
 	Dash   = world:entity(),
+	Hurdle = world:entity(),
 
 	-- Carry state
 	CARRIES = world:component(),  -- relation on carrier → the ball it holds: pair(CARRIES, ball). Replicated (replecs.relation, auto-remapped like CARRIED_BY/OwnedBy) so the predicted client sees who's carrying and gates on it (e.g. can't tackle while carrying). Reverse of the ball's CARRIED_BY.

@@ -7,6 +7,7 @@ local jecs = require(ReplicatedStorage.Packages.jecs)
 local components = require(ReplicatedStorage.Code.Shared.Components)
 local tags = require(ReplicatedStorage.Code.Shared.Tags)
 local DashCalc = require(ReplicatedStorage.Code.Shared.DashCalc)
+local HurdleCalc = require(ReplicatedStorage.Code.Shared.HurdleCalc)
 
 local pair = jecs.pair
 
@@ -42,11 +43,11 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 		Throw  = { pressed = false, held = false, released = false },
 		Catch  = { pressed = false, held = false, released = false },
 		Tackle = { pressed = false, held = false, released = false },
-		Jump   = { pressed = false, held = false, released = false },
 		Juke   = { pressed = false, held = false, released = false },
 		Dive   = { pressed = false, held = false, released = false },
 		Grab   = { pressed = false, held = false, released = false },
 		Dash   = { pressed = false, held = false, released = false },
+		Hurdle = { pressed = false, held = false, released = false },
 	})
 
 	-- Interaction
@@ -61,11 +62,11 @@ function Prefabs.Character(world, entity, rootPart, humanoid)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Tackle), components.Tackle)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Juke),   components.Juke)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Dive),   components.Dive)
-	world:set(entity, pair(components.HAS_INTERACTION, components.Jump),   components.Jump)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Snap),   components.Snap)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Catch),  components.Catch)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Grab),   components.Grab)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Dash),   components.Dash)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Hurdle), components.Hurdle)
 
 	-- Netcode
 	world:set(entity, components.STATE_HISTORY, {})
@@ -118,14 +119,19 @@ function Prefabs.PredictedCharacter(world, entity, rootPart)
 	-- Tackle is a SPLIT action: its own-body launch is predicted here (shared TackleLaunchSystem
 	-- runs on both realms), but its cross-entity RESOLVE (the TackleSweep node's contact check ->
 	-- hit stun+fumble / whiff stun) is gated server-only inside the node itself.
+	-- Hurdle is the same split shape: its own-body vertical launch is predicted here (shared
+	-- HurdleLaunchSystem, instant vault), while whether a tackle whiffs OVER it is resolved server-only
+	-- inside TackleSweep (which reads the predicted-and-replicated HURDLING window).
 	-- Fully cross-entity actions (Throw/Grab) are intentionally absent → they stay server-only.
 	world:set(entity, components.INTERACTION_MANAGER, { active = {}, cooldowns = {}, combos = {} })
 	world:set(entity, components.INPUT_STATE, {
 		Dash   = { pressed = false, held = false, released = false },
 		Tackle = { pressed = false, held = false, released = false },
+		Hurdle = { pressed = false, held = false, released = false },
 	})
 	world:set(entity, pair(components.HAS_INTERACTION, components.Dash),   components.Dash)
 	world:set(entity, pair(components.HAS_INTERACTION, components.Tackle), components.Tackle)
+	world:set(entity, pair(components.HAS_INTERACTION, components.Hurdle), components.Hurdle)
 
 	return entity
 end
@@ -216,19 +222,6 @@ function Prefabs.Interactions(world)
 		InterruptedBy = { components.Tackle },
 	})
 
-	-- Jump
-	world:set(components.Jump, components.CHAIN_DEF, {
-		Type = "Serial",
-		Children = {
-			{ Type = "Condition", Tag = "IS_GROUNDED" },
-			{ Type = "CooldownCondition", CooldownId = "CD_JUMP" },
-			{ Type = "TriggerCooldown", CooldownId = "CD_JUMP" },
-			{ Type = "PushEvent", Queue = "GroundJump" },
-		},
-	})
-	world:set(components.Jump, components.COOLDOWN_CONFIG, { Duration = 0.5 })
-	world:set(components.Jump, components.INTERACTION_RULES, {})
-
 	-- Snap (center snaps ball to QB)
 	world:set(components.Snap, components.CHAIN_DEF, {
 		Type = "Serial",
@@ -279,6 +272,27 @@ function Prefabs.Interactions(world)
 	})
 	world:set(components.Dash, components.COOLDOWN_CONFIG, { Duration = DashCalc.DASH_COOLDOWN_DURATION })
 	world:set(components.Dash, components.INTERACTION_RULES, {})
+
+	-- Hurdle (predicted vertical launch to vault a diving tackler). Same shape as Dash but launches UP:
+	-- Condition IS_GROUNDED (hurdle off the floor); Condition HURDLING-invert blocks re-fire mid-vault;
+	-- CooldownCondition gates on the server-authoritative pair(COOLDOWN, CD_HURDLE); PushEvent hands off
+	-- to the shared HurdleLaunchSystem, which owns the launch + HURDLING window in ECS. Runs on client
+	-- (prediction) and server (authority). The vault is a READ, not a reflex: mistime it and the tackle's
+	-- contact lands on a tick when HURDLING isn't active → normal takedown; time it right and TackleSweep
+	-- resolves a hurdle-over. No `side` child here — the whole chain is the own-body launch; the
+	-- cross-entity outcome lives in TackleSweep (server-only), not in this chain.
+	world:set(components.Hurdle, components.CHAIN_DEF, {
+		Type = "Serial",
+		Children = {
+			{ Type = "Condition", Tag = "IS_GROUNDED" },
+			{ Type = "Condition", Tag = "HURDLING", Invert = true },
+			{ Type = "CooldownCondition", CooldownId = "CD_HURDLE" },
+			{ Type = "TriggerCooldown", CooldownId = "CD_HURDLE" },
+			{ Type = "PushEvent", Queue = "Hurdle" },
+		},
+	})
+	world:set(components.Hurdle, components.COOLDOWN_CONFIG, { Duration = HurdleCalc.HURDLE_COOLDOWN_DURATION })
+	world:set(components.Hurdle, components.INTERACTION_RULES, {})
 end
 
 return Prefabs

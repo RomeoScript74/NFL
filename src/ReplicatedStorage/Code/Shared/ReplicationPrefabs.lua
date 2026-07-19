@@ -32,6 +32,11 @@ function ReplicationPrefabs.applyCharacter(world, entity, owner: Player)
 	-- SERVER_TACKLE_WINDOW restores the predicted launch coast (TACKLING + TACKLE_WINDOW) on replay.
 	world:add(entity, pair(replecs.reliable, components.SERVER_TACKLE_CD))
 	world:add(entity, pair(replecs.reliable, components.SERVER_TACKLE_WINDOW))
+	-- Hurdle anchors: same pattern — SERVER_HURDLE_CD restores the predicted cooldown, SERVER_HURDLE_WINDOW
+	-- restores the predicted vault window (HURDLING + HURDLE_WINDOW) on replay AND is the remote anim source
+	-- (>0 = mid-hurdle), since the predicted HURDLING tag itself can't be replicated.
+	world:add(entity, pair(replecs.reliable, components.SERVER_HURDLE_CD))
+	world:add(entity, pair(replecs.reliable, components.SERVER_HURDLE_WINDOW))
 	world:add(entity, pair(replecs.reliable, components.REMOTE_TICK))
 	-- ROOTPART is a raw Roblox Instance — replicating it causes "received
 	-- instance is nil!" on slow/rejoining clients when the instance hasn't

@@ -18,7 +18,7 @@ local AnimationConfig = {
 		Idle = { id = "",                             loop = true },
 		Walk = { id = "rbxassetid://136888987725031", loop = true },
 		Run  = { id = "rbxassetid://76307876961727",  loop = true },
-		Jump = { id = "",                             loop = false },
+		Jump = { id = "",  							  loop = false },
 		Fall = { id = "",                             loop = true },
 	},
 
@@ -38,7 +38,20 @@ local AnimationConfig = {
 		{ name = "Stun",   id = "rbxassetid://132753410690816", tag = "STUNNED" },  -- got-tackled fall
 		{ name = "Throw",  id = "rbxassetid://76796874443961",  tag = "THROWING" },
 		{ name = "Tackle", id = "rbxassetid://136908519069282", tag = "TACKLING", predictedWindow = "SERVER_TACKLE_WINDOW" },
+		-- Predicted vault (own-body launch), same realm-split as Tackle: owner reads HURDLING (instant),
+		-- remotes read SERVER_HURDLE_WINDOW. `recovery` = the clip that plays when this action ENDS — since
+		-- HURDLING now ends on the ACTUAL landing (HurdleLaunchSystem), the recovery fires exactly on
+		-- touchdown, state-driven, no velocity sniffing. Uniform on owner + remotes (both see the action end).
+		{ name = "Hurdle", id = "rbxassetid://70429243187034", tag = "HURDLING", predictedWindow = "SERVER_HURDLE_WINDOW", recovery = "Land" },
 	},
+
+	-- Land: the HURDLE-landing one-shot — plays when a hurdle's descent touches down (NOT on every fall).
+	-- It's the Hurdle action's `recovery` clip (see above): InteractionAnimationSystem plays it when the
+	-- Hurdle action ENDS, and since HURDLING now ends on the real touchdown, that IS the landing moment
+	-- (no velocity sniff, no cross-system flag). Not a state or a loco state, so it lives on its own here
+	-- — loaded at Action priority so it plays OVER the ground clip for its length, then idle/walk shows
+	-- through. Paste your hurdle-land clip id here.
+	Land = { id = "rbxassetid://116970761402037" },
 
 	-- Blend / selection tuning (gameplay feel — safe to change).
 	InteractionFade  = 0.1,   -- crossfade seconds when an action clip starts/ends

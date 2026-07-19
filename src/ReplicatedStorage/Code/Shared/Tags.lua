@@ -8,6 +8,7 @@ local Tags = {
 	IS_GROUNDED     = jecs.tag(),
 	DASHING         = jecs.tag(),  -- active dash window: excluded from ground movement so the burst coasts; derived from CD_DASH remaining
 	TACKLING        = jecs.tag(),  -- active tackle-launch window: excluded from ground movement so the forward burst coasts. Owned by TackleSystem (server); not replicated.
+	HURDLING        = jecs.tag(),  -- active hurdle window (predicted vertical launch): drives the vault anim, gates re-fire, and is the tackle-immune window TackleSweep reads to resolve a hurdle-over instead of a takedown. Owned by HurdleLaunchSystem (both realms); not replicated (owner predicts it, remotes read SERVER_HURDLE_WINDOW).
 	STUNNED         = jecs.tag(),  -- frozen + vulnerable after a landed/whiffed tackle: excluded from movement and interactions. Owned by TackleSystem (server); replicated so remotes see it and the owner stops predicting movement.
 	CHARACTER       = jecs.tag(),  -- collidable player character: the explicit filter for character-vs-character collision (never rely on COLLIDER_RADIUS presence)
 	BRACED          = jecs.tag(),  -- brace stance active (BRACE input flag held): immovable in collision (pusher takes full separation). Derived from INPUT_FLAGS by BraceStateSystem; not replicated.

@@ -17,13 +17,13 @@ local world = require(ReplicatedStorage.Code.Shared.World)
 local pipelines = require(ReplicatedStorage.Code.Shared.PipeLines)
 
 local FLAG_TO_ACTION = {
-	JUMP   = "Jump",
 	JUKE   = "Juke",
 	DIVE   = "Dive",
 	TACKLE = "Tackle",
 	PASS   = "Throw",
 	GRAB   = "Grab",
 	DASH   = "Dash",
+	HURDLE = "Hurdle",
 }
 
 local stateQuery = world:query(

@@ -21,10 +21,6 @@ local EventQueues = {
 	-- Tackle: TackleInteraction -> TackleLaunchSystem
 	Tackle = EventQueue.new(128),
 
-	-- TackleLand: TackleSweep node, on a landed hit -> TackleLaunchSystem (ends the coast immediately
-	-- instead of sliding through the now-stunned target for the rest of the dive window)
-	TackleLand = EventQueue.new(128),
-
 	-- Stun: any stun source (TackleSystem today; blocks/trips/abilities later) -> StunSystem
 	Stun = EventQueue.new(128),
 
@@ -43,14 +39,14 @@ local EventQueues = {
 	-- Dive: DiveInteraction -> DiveSystem
 	Dive = EventQueue.new(128),
 
-	-- Ground jump: Jump interaction node -> GroundJumpImpulseSystem
-	GroundJump = EventQueue.new(128),
-
 	-- Grab: Grab interaction (SelectNearby -> PushEvent) -> GrabSystem
 	Grab = EventQueue.new(128),
 
 	-- Dash: Dash interaction (Condition -> CooldownCondition -> PushEvent) -> DashImpulseSystem (shared, predicted)
 	Dash = EventQueue.new(128),
+
+	-- Hurdle: Hurdle interaction (predicted vertical launch) -> HurdleLaunchSystem (shared, predicted)
+	Hurdle = EventQueue.new(128),
 
 	-- StartCooldown: TriggerCooldown node -> CooldownStartSystem (applies pair(COOLDOWN, *) server-side)
 	StartCooldown = EventQueue.new(128),

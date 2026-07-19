@@ -12,6 +12,8 @@ local DASH_CD = jecs.pair(components.COOLDOWN, components.CD_DASH)
 local DASH_WINDOW_TIMER = jecs.pair(components.TIMER, components.DASH_WINDOW)
 local TACKLE_CD = jecs.pair(components.COOLDOWN, components.CD_TACKLE)
 local TACKLE_WINDOW_TIMER = jecs.pair(components.TIMER, components.TACKLE_WINDOW)
+local HURDLE_CD = jecs.pair(components.COOLDOWN, components.CD_HURDLE)
+local HURDLE_WINDOW_TIMER = jecs.pair(components.TIMER, components.HURDLE_WINDOW)
 
 local stampQuery = world:query(
 	components.POSITION,
@@ -43,6 +45,8 @@ local function serverStateStampSystem()
 		world:set(entity, components.SERVER_DASH_WINDOW, world:get(entity, DASH_WINDOW_TIMER) or 0)
 		world:set(entity, components.SERVER_TACKLE_CD, world:get(entity, TACKLE_CD) or 0)
 		world:set(entity, components.SERVER_TACKLE_WINDOW, world:get(entity, TACKLE_WINDOW_TIMER) or 0)
+		world:set(entity, components.SERVER_HURDLE_CD, world:get(entity, HURDLE_CD) or 0)
+		world:set(entity, components.SERVER_HURDLE_WINDOW, world:get(entity, HURDLE_WINDOW_TIMER) or 0)
 	end
 end
 

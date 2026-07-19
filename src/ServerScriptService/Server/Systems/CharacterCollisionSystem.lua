@@ -23,6 +23,9 @@ local bracedQuery = world:query():with(tags.CHARACTER, tags.BRACED):cached()
 -- Diving tacklers: their dive is resolved by TackleSweep (the decisive layer), not this ambient
 -- push-apart — :has() lets the N² loop exempt tackler-vs-non-braced pairs directly.
 local tacklingQuery = world:query():with(tags.CHARACTER, tags.TACKLING):cached()
+-- Hurdling runners phase the same way: they're airborne vaulting OVER a defender, so the vault should
+-- carry them past instead of bumping to a stop against the (tackling) body they're clearing.
+local hurdlingQuery = world:query():with(tags.CHARACTER, tags.HURDLING):cached()
 
 -- Reused across ticks so a steady state allocates nothing.
 local entities = {}
@@ -53,9 +56,10 @@ local function characterCollisionSystem()
 			-- TackleSweep's resolve: a fast lunge overlaps the runner's rendered position and stops
 			-- here, while the sweep independently misses (favor-the-runner) — two different answers,
 			-- the server wins, and the tackler reconciles backward.
-			local iDiving = tacklingQuery:has(entities[i]) and not bracedQuery:has(entities[j])
-			local jDiving = tacklingQuery:has(entities[j]) and not bracedQuery:has(entities[i])
-			if iDiving or jDiving then continue end
+			-- ...OR a hurdling runner: same phasing, so the vault carries past the tackler it clears.
+			local iPhasing = (tacklingQuery:has(entities[i]) or hurdlingQuery:has(entities[i])) and not bracedQuery:has(entities[j])
+			local jPhasing = (tacklingQuery:has(entities[j]) or hurdlingQuery:has(entities[j])) and not bracedQuery:has(entities[i])
+			if iPhasing or jPhasing then continue end
 
 			local sep = PhysicsCalc.separation(positions[i], radii[i], positions[j], radii[j])
 			if sep ~= Vector3.zero then

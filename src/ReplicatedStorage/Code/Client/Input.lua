@@ -142,7 +142,6 @@ local function deriveActionState(deltaTime: number)
 
 	return {
 		boolean = {
-			jump = rawInput.space,
 			pass = rawInput.q,
 			tackle = rawInput.e,
 			juke = rawInput.r,
@@ -151,6 +150,7 @@ local function deriveActionState(deltaTime: number)
 			grab = rawInput.k,
 			dash = rawInput.c,
 			brace = rawInput.v,
+			hurdle = rawInput.space,
 		},
 		value2d = {
 			move = keyboardMove + gamepadMove,
@@ -162,7 +162,6 @@ end
 UserGameSettings:SetGamepadCameraSensitivityVisible()
 
 local ACTIONS_BOOLEAN = {
-	jump = true,
 	pass = true,
 	tackle = true,
 	juke = true,
@@ -171,6 +170,7 @@ local ACTIONS_BOOLEAN = {
 	grab = true,
 	dash = true,
 	brace = true,
+	hurdle = true,
 }
 
 local ACTIONS_2D = {

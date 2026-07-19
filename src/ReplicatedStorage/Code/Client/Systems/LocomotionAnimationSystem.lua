@@ -9,7 +9,8 @@
 -- (SERVER_VELOCITY) split into VISUAL_VELOCITY, so this system no longer branches by realm. State is
 -- chosen from that velocity ALONE (no IS_GROUNDED dependency — remotes aren't simulated and never have
 -- that tag): vertical speed picks jump/fall, horizontal speed picks idle/walk/run and scales the
--- clip's playback speed so the feet don't skate.
+-- clip's playback speed so the feet don't skate. PURELY continuous — one-shot events like the hurdle
+-- landing are NOT here; they live in the actions layer (InteractionAnimationSystem's `recovery` clips).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local components = require(ReplicatedStorage.Code.Shared.Components)

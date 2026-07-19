@@ -1,17 +1,15 @@
 -- TackleLaunchSystem.lua — Drains Tackle events (pushed by the Tackle interaction chain's PushEvent
 -- step) and applies the forward launch burst. Shared: runs on client (prediction) and server
 -- (authority) — mirrors DashImpulseSystem exactly. Owns the TACKLING tag end-to-end: adds it on fire
--- alongside a pair(TIMER, TACKLE_WINDOW) coast timer, and removes it EITHER when that timer elapses
--- naturally (whiff — TimerSystem's job, this system never ticks it) OR immediately on a TackleLand
--- event (a landed hit — see below). Nobody else touches TACKLING.
+-- alongside a pair(TIMER, TACKLE_WINDOW) coast timer, and removes it when that timer elapses (TimerSystem's
+-- job — this system never ticks it). Nobody else touches TACKLING.
 --
--- The RESOLVE (contact sweep, hit/whiff consequences) is a separate concern, handled by the
--- TackleSweep interaction node (server-only). It doesn't mutate TACKLING directly (ownership), so on
--- a landed hit it pushes TackleLand to request an early stop — without this, the tackler keeps
--- coasting through the now-stunned target for the rest of the window: ambient collision is exempted
--- while TACKLING (so the dive doesn't visually stall on a miss), so the overlap goes uncorrected and
--- the floor raycast (which only excludes the tackler's own model) can pick up the target's body as
--- ground and step the tackler onto it.
+-- The coast runs its FULL window whether the tackle hits or whiffs — a tackle plows THROUGH, it doesn't
+-- halt on contact. The RESOLVE (contact sweep, hit/whiff consequences) is a separate concern in the
+-- TackleSweep node (server-only): it pushes Stun/Fumble/Interrupt but does NOT stop the coast, so the
+-- tackler drives past the tackled runner. (Driving through a body is clean because character parts are
+-- CanQuery=false — the floor raycast can't catch the target and step the tackler up onto it; that
+-- CharacterSetup change is what retired the old TackleLand early-stop.)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.jecs)
@@ -30,16 +28,6 @@ local expiredQuery = world:query():with(tags.TACKLING):without(TACKLE_WINDOW_TIM
 local function tackleLaunchSystem()
 	for entity in expiredQuery do
 		world:remove(entity, tags.TACKLING)
-	end
-
-	-- Early stop: a landed hit ends the coast now instead of at natural timer expiry. Clear both the
-	-- tag and the timer pair together — leaving the timer pair behind would make SERVER_TACKLE_WINDOW
-	-- keep replicating a nonzero value and reconciliation would re-add TACKLING on the next replay.
-	for _, entry in EventTypes.TackleLand:drain() do
-		local entity = entry.entity
-		if not world:contains(entity) then continue end
-		world:remove(entity, tags.TACKLING)
-		world:remove(entity, TACKLE_WINDOW_TIMER)
 	end
 
 	for _, entry in EventTypes.Tackle:drain() do

@@ -73,6 +73,17 @@ for _, def in AnimationConfig.Actions do
 	end
 end
 
+-- Recovery clips: an action may name a `recovery` clip that plays as a one-shot when the action ENDS
+-- (e.g. Hurdle → Land the instant HURDLING clears, i.e. on touchdown). Data-driven like the catalog:
+-- { [actionName] = recoveryClipName }. This is how a discrete "landing/get-up" beat stays in the actions
+-- layer — driven off the action's own state ending, not sniffed from velocity in locomotion.
+local ACTION_RECOVERY = {}
+for _, def in AnimationConfig.Actions do
+	if def.recovery then
+		ACTION_RECOVERY[def.name] = def.recovery
+	end
+end
+
 -- The single active action for this entity, or nil — first matching catalog entry in priority order.
 local function selectAction(entity: number): string?
 	for _, entry in ACTION_CATALOG do
@@ -99,26 +110,38 @@ local function driveAction(store, action: string?)
 	if action == store.action then
 		return
 	end
+	local prev = store.action
 	store.action = action
 
 	if action then
 		local track = store.tracks[action]
 		if track then
 			-- New action has a clip → replace whatever's playing with it.
-			local prev = store.playing and store.tracks[store.playing]
-			if prev then
-				prev:Stop(INT_FADE)
+			local playing = store.playing and store.tracks[store.playing]
+			if playing then
+				playing:Stop(INT_FADE)
 			end
 			track:Play(INT_FADE)
 			store.playing = action
 		end
 		-- else: this state has no clip (e.g. Stun with no id yet) → leave the current one-shot to finish.
 	else
-		-- State cleared: stop a held (looping) clip; let a one-shot play out on its own.
-		local track = store.playing and store.tracks[store.playing]
-		if track and track.Looped then
-			track:Stop(INT_FADE)
-			store.playing = nil
+		-- State cleared. If the ending action has a RECOVERY clip (Hurdle → Land on touchdown), crossfade
+		-- into it as a one-shot follow-up. Otherwise stop a held (looping) clip; let a plain one-shot finish.
+		local recovery = prev and ACTION_RECOVERY[prev]
+		if recovery and store.tracks[recovery] then
+			local playing = store.playing and store.tracks[store.playing]
+			if playing then
+				playing:Stop(INT_FADE)
+			end
+			store.tracks[recovery]:Play(INT_FADE)
+			store.playing = recovery
+		else
+			local track = store.playing and store.tracks[store.playing]
+			if track and track.Looped then
+				track:Stop(INT_FADE)
+				store.playing = nil
+			end
 		end
 	end
 end

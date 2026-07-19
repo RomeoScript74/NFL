@@ -65,6 +65,9 @@ local function loadTracks(entity: number)
 	for _, def in AnimationConfig.Actions do
 		tracks[def.name] = loadTrack(animator, def.id, ACTION, false)
 	end
+	-- Land: the hurdle's recovery clip (Action priority). InteractionAnimationSystem plays it when the
+	-- Hurdle action ends (= touchdown, since HURDLING now ends on landing); referenced by `recovery`.
+	tracks.Land = loadTrack(animator, AnimationConfig.Land.id, ACTION, false)
 	world:set(entity, components.ANIMATION_TRACKS, { tracks = tracks, loco = nil, action = nil, playing = nil })
 end
 

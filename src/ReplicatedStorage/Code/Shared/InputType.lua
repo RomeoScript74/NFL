@@ -8,7 +8,7 @@
 	  bit 1: BACKWARD
 	  bit 2: LEFT
 	  bit 3: RIGHT
-	  bit 4: JUMP
+	  bit 4: (free — was JUMP, removed)
 	  bit 5: PASS
 	  bit 6: TACKLE
 	  bit 7: JUKE
@@ -17,6 +17,7 @@
 	  bit 10: GRAB
 	  bit 11: DASH
 	  bit 12: BRACE
+	  bit 13: HURDLE
 ]]
 
 local bit32 = bit32
@@ -28,8 +29,7 @@ local InputType = {
 	LEFT     = 4,
 	RIGHT    = 8,
 
-	-- Actions (bits 4+)
-	JUMP     = 16,
+	-- Actions (bits 4+; bit 4 = 16 is free after JUMP was removed)
 	PASS     = 32,
 	TACKLE   = 64,
 	JUKE     = 128,
@@ -38,6 +38,7 @@ local InputType = {
 	GRAB     = 1024,
 	DASH     = 2048,
 	BRACE    = 4096,
+	HURDLE   = 8192,
 }
 
 -- Check if a flag is set in the mask.

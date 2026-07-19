@@ -20,6 +20,9 @@ local DASH_WINDOW_TIMER = jecs.pair(components.TIMER, components.DASH_WINDOW)
 -- Predicted tackle cooldown + launch coast — restored from SERVER_TACKLE_CD / SERVER_TACKLE_WINDOW.
 local TACKLE_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_TACKLE)
 local TACKLE_WINDOW_TIMER = jecs.pair(components.TIMER, components.TACKLE_WINDOW)
+-- Predicted hurdle cooldown + airborne window — restored from SERVER_HURDLE_CD / SERVER_HURDLE_WINDOW.
+local HURDLE_CD_PAIR = jecs.pair(components.COOLDOWN, components.CD_HURDLE)
+local HURDLE_WINDOW_TIMER = jecs.pair(components.TIMER, components.HURDLE_WINDOW)
 
 local HORIZONTAL_THRESHOLD = 0
 local VERTICAL_GROUNDED   = 1.1
@@ -33,6 +36,8 @@ local reconciliationQuery = world:query(
 	components.SERVER_DASH_WINDOW,
 	components.SERVER_TACKLE_CD,
 	components.SERVER_TACKLE_WINDOW,
+	components.SERVER_HURDLE_CD,
+	components.SERVER_HURDLE_WINDOW,
 	components.INPUT_HISTORY,
 	components.LAST_RECONCILED_TICK,
 	components.POSITION,
@@ -42,7 +47,7 @@ local reconciliationQuery = world:query(
 ):with(tags.PREDICTED):cached()
 
 local function reconciliationSystem()
-	for entity, serverTick, serverPos, serverVel, serverDashCd, serverDashWindow, serverTackleCd, serverTackleWindow, history, lastReconciled, pos, inputDir, inputFlags, visualOffset in reconciliationQuery do
+	for entity, serverTick, serverPos, serverVel, serverDashCd, serverDashWindow, serverTackleCd, serverTackleWindow, serverHurdleCd, serverHurdleWindow, history, lastReconciled, pos, inputDir, inputFlags, visualOffset in reconciliationQuery do
 		if serverTick == lastReconciled then continue end
 		world:set(entity, components.LAST_RECONCILED_TICK, serverTick)
 
@@ -122,6 +127,23 @@ local function reconciliationSystem()
 			world:set(entity, TACKLE_CD_PAIR, serverTackleCd)
 		else
 			world:remove(entity, TACKLE_CD_PAIR)
+		end
+
+		-- Restore the predicted hurdle window (mirror of the dash burst): a confirmed hurdle keeps
+		-- HURDLING + its window so replayed ticks stay airborne/immune; 0 clears both.
+		if serverHurdleWindow > 0 then
+			world:set(entity, HURDLE_WINDOW_TIMER, serverHurdleWindow)
+			world:add(entity, tags.HURDLING)
+		else
+			world:remove(entity, tags.HURDLING)
+			world:remove(entity, HURDLE_WINDOW_TIMER)
+		end
+
+		-- Restore the predicted hurdle cooldown (mirror of dash) so replay re-ticks from the anchor.
+		if serverHurdleCd > 0 then
+			world:set(entity, HURDLE_CD_PAIR, serverHurdleCd)
+		else
+			world:remove(entity, HURDLE_CD_PAIR)
 		end
 
 		-- Suppress observers/VFX during replay

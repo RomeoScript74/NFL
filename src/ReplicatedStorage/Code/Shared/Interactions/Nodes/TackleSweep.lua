@@ -49,9 +49,16 @@ local GRAB_REACH = 1.0     -- studs added to the tackler's collider radius: body
 local INTERP_BUFFER = 0.15  -- fixed part: MUST match RemoteVisualInterpolator.BUFFER_DELAY
 local PING_SCALE    = 1.0   -- fraction of the tackler's ping to add (ping≈RTT → 1.0). Lower if high-ping tackles over-reach, raise if they fall short
 
--- Runners that can be caught: CHARACTER, not braced (the query IS the "braced can't be tackled" rule).
+-- Runners that can be caught: CHARACTER, not braced, NOT mid-hurdle (the query IS the rules — "braced
+-- can't be tackled", "a hurdling runner is immune, resolved as a hurdle-over below"). Both exclusions in
+-- ONE :without call — chaining :without silently drops the first (jecs pitfall #8).
 local candidateQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS)
-	:with(tags.CHARACTER):without(tags.BRACED):cached()
+	:with(tags.CHARACTER):without(tags.BRACED, tags.HURDLING):cached()
+
+-- Runners mid-hurdle: the tackle whiffs UNDER them (the duo). Separate query so the immune outcome is a
+-- clean branch, not a has()-check in the loop body.
+local hurdleQuery = world:query(components.POSITION, components.VELOCITY, components.COLLIDER_RADIUS)
+	:with(tags.CHARACTER, tags.HURDLING):cached()
 
 NodeRegistry.register("TackleSweep", function(_config)
 	return {
@@ -84,11 +91,34 @@ NodeRegistry.register("TackleSweep", function(_config)
 						EventTypes.Fumble:push({ carrier = runner })
 						EventTypes.Stun:push({ target = runner, duration = STUN_TICKS })
 						ctx:setMeta("TargetEntity", runner)
-						-- Stop the coast NOW — otherwise the tackler keeps sliding through the now-stunned
-						-- target for the rest of the dive window (TACKLING's ambient-collision exemption
-						-- would let them fully overlap it).
-						EventTypes.TackleLand:push({ entity = tackler })
+						-- Do NOT stop the coast: the tackler DRIVES THROUGH the tackled runner and finishes
+						-- the lunge (a tackle plows past, it doesn't halt on contact). The sweep still ends
+						-- here (SUCCESS, no double-hit); TACKLING keeps coasting on its own timer.
 						return SUCCESS
+					end
+				end
+
+				-- Hurdle-over: a HURDLING runner in horizontal reach is IMMUNE — the tackle whiffs UNDER
+				-- the vault (the duo). Resolve on HORIZONTAL position only: the vault's height is visual;
+				-- the immune WINDOW (HURDLING, time) is what saves the runner, so a runner cleanly above the
+				-- collision cylinder is still "here" for this check (which is exactly why separation() —
+				-- with its vertical-clearance rule — is NOT used here). Same lag-comp rewind as above.
+				-- The tackler is NOT stopped or stunned (he drives through, under the vault); the runner is
+				-- untouched (keeps HURDLING + momentum). FAILURE ends the dive and short-circuits the Serial,
+				-- so the Interrupt node after this one never runs — we leave the hurdler's action alone.
+				for runner, rpos, rvel, rradius in hurdleQuery do
+					if runner == tackler then continue end
+					local seen = rpos - Vector3.new(rvel.X, 0, rvel.Z) * rewind
+					local dx = pos.X - seen.X
+					local dz = pos.Z - seen.Z
+					local minDist = reach + rradius
+					if dx * dx + dz * dz < minDist * minDist then
+						-- Detected the hurdle-over. Do NOT stop or stun the tackler: he DRIVES THROUGH (dives
+						-- under the vault), and his TACKLING coast carries him past — ending up BEHIND the
+						-- hurdler, same as any other tackle now. FAILURE just ends the sweep here (the hurdler
+						-- is immune, no hit) and short-circuits the Serial so Interrupt never runs. (Future: the
+						-- duo co-animation / any recovery-stumble hooks in right here.)
+						return FAILURE
 					end
 				end
 			end
